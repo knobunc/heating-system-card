@@ -10,7 +10,7 @@ Shows zone thermostats, buffer tank, DHW tank, outdoor temperature, recirculatio
 
 1. Open HACS in Home Assistant
 2. Go to **Frontend** > three-dot menu > **Custom repositories**
-3. Add this repo URL with category **Lovelace**
+3. Add this repo URL with type **Dashboard**
 4. Install **Heating System Card**
 5. Restart Home Assistant
 
