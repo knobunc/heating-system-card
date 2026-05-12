@@ -386,12 +386,19 @@ class HeatingSystemCardEditor extends HTMLElement {
 
   setConfig(config) {
     this._config = config;
+    this._rendered = false;
     if (this._hass) this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    if (!this._rendered) {
+      this._render();
+    } else {
+      this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => {
+        p.hass = hass;
+      });
+    }
   }
 
   _fire() {
@@ -558,6 +565,7 @@ class HeatingSystemCardEditor extends HTMLElement {
       ['total_power', 'Power', 'sensor'],
       ['cop', 'COP', 'sensor'],
     ]);
+    this._rendered = true;
   }
 
   _buildZones(container, zones) {
@@ -577,6 +585,7 @@ class HeatingSystemCardEditor extends HTMLElement {
         updated.splice(i, 1);
         this._config = { ...this._config, zones: updated };
         this._fire();
+        this._rendered = false;
         this._render();
       });
       header.appendChild(removeBtn);
@@ -609,6 +618,7 @@ class HeatingSystemCardEditor extends HTMLElement {
       updated.push({ entity: '', name: '' });
       this._config = { ...this._config, zones: updated };
       this._fire();
+      this._rendered = false;
       this._render();
     });
     container.appendChild(addBtn);
