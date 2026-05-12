@@ -52,6 +52,10 @@ class HeatingSystemCard extends HTMLElement {
     this._built = false;
   }
 
+  static getConfigElement() {
+    return document.createElement('heating-system-card-editor');
+  }
+
   static getStubConfig() {
     return {};
   }
@@ -373,6 +377,295 @@ class HeatingSystemCard extends HTMLElement {
   }
 }
 
+class HeatingSystemCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._config = {};
+  }
+
+  setConfig(config) {
+    this._config = config;
+    if (this._hass) this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _fire() {
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  _render() {
+    const c = this._config;
+    const buf = { ...DEFAULTS.buffer, ...(c.buffer || {}) };
+    const dhw = { ...DEFAULTS.dhw, ...(c.dhw || {}) };
+    const out = { ...DEFAULTS.outdoor, ...(typeof c.outdoor === 'string' ? { entity: c.outdoor } : c.outdoor || {}) };
+    const rec = { ...DEFAULTS.recirc, ...(typeof c.recirc === 'string' ? { entity: c.recirc } : c.recirc || {}) };
+    const geo = { ...DEFAULTS.geo, ...(c.geo || {}) };
+    const zones = (c.zones && c.zones.length > 0) ? c.zones : DEFAULTS.zones;
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          font-family: var(--paper-font-body1_-_font-family, 'Roboto', sans-serif);
+          color: var(--primary-text-color, #212121);
+        }
+        details {
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: 8px;
+          margin-bottom: 8px;
+          overflow: hidden;
+        }
+        summary {
+          padding: 10px 12px;
+          font-weight: 500;
+          font-size: 14px;
+          cursor: pointer;
+          background: var(--secondary-background-color, #fafafa);
+          user-select: none;
+        }
+        .section { padding: 8px 12px 12px; }
+        .field {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+        .field label {
+          min-width: 80px;
+          font-size: 13px;
+          color: var(--secondary-text-color, #727272);
+          flex-shrink: 0;
+        }
+        .field ha-entity-picker { flex: 1; }
+        .field input[type="text"] {
+          flex: 1;
+          padding: 6px 8px;
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: 4px;
+          font-size: 14px;
+          background: var(--card-background-color, #fff);
+          color: var(--primary-text-color, #212121);
+        }
+        .zone-row {
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: 6px;
+          padding: 8px;
+          margin-bottom: 8px;
+        }
+        .zone-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 6px;
+        }
+        .zone-header span {
+          font-size: 13px;
+          font-weight: 500;
+        }
+        .btn {
+          padding: 4px 12px;
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: 4px;
+          background: var(--secondary-background-color, #fafafa);
+          color: var(--primary-text-color, #212121);
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .btn:hover { background: var(--divider-color, #e0e0e0); }
+        .btn-remove {
+          border: none;
+          background: none;
+          color: var(--error-color, #db4437);
+          font-size: 18px;
+          cursor: pointer;
+          padding: 0 4px;
+          line-height: 1;
+        }
+        .add-row { margin-top: 4px; }
+      </style>
+
+      <details open>
+        <summary>Zones</summary>
+        <div class="section" id="zones-section"></div>
+      </details>
+
+      <details>
+        <summary>Buffer Tank</summary>
+        <div class="section" id="buffer-section"></div>
+      </details>
+
+      <details>
+        <summary>DHW Tank</summary>
+        <div class="section" id="dhw-section"></div>
+      </details>
+
+      <details>
+        <summary>Outdoor</summary>
+        <div class="section" id="outdoor-section"></div>
+      </details>
+
+      <details>
+        <summary>Recirc</summary>
+        <div class="section" id="recirc-section"></div>
+      </details>
+
+      <details>
+        <summary>Geothermal</summary>
+        <div class="section" id="geo-section"></div>
+      </details>
+    `;
+
+    const $ = (id) => this.shadowRoot.getElementById(id);
+
+    this._buildZones($('zones-section'), zones);
+    this._buildGroup($('buffer-section'), 'buffer', buf, [
+      ['name', 'Name', 'text'],
+      ['temp', 'Temp', 'sensor'],
+      ['target', 'Target', 'sensor'],
+      ['state', 'State', 'sensor'],
+      ['pump', 'Pump', 'binary_sensor'],
+      ['wwsd', 'WWSD', 'sensor'],
+      ['reset_outdoor', 'Reset Outdoor', 'sensor'],
+    ]);
+    this._buildGroup($('dhw-section'), 'dhw', dhw, [
+      ['name', 'Name', 'text'],
+      ['temp', 'Temp', 'sensor'],
+      ['target', 'Target', 'sensor'],
+      ['state', 'State', 'sensor'],
+      ['pump', 'Pump', 'binary_sensor'],
+    ]);
+    this._buildGroup($('outdoor-section'), 'outdoor', out, [
+      ['name', 'Name', 'text'],
+      ['entity', 'Entity', 'sensor'],
+    ]);
+    this._buildGroup($('recirc-section'), 'recirc', rec, [
+      ['name', 'Name', 'text'],
+      ['entity', 'Entity', 'switch'],
+    ]);
+    this._buildGroup($('geo-section'), 'geo', geo, [
+      ['name', 'Name', 'text'],
+      ['running', 'Running', 'binary_sensor'],
+      ['heat_of_extraction', 'HoE', 'sensor'],
+      ['total_power', 'Power', 'sensor'],
+      ['cop', 'COP', 'sensor'],
+    ]);
+  }
+
+  _buildZones(container, zones) {
+    zones.forEach((z, i) => {
+      const row = document.createElement('div');
+      row.className = 'zone-row';
+
+      const header = document.createElement('div');
+      header.className = 'zone-header';
+      header.innerHTML = `<span>Zone ${i + 1}</span>`;
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn-remove';
+      removeBtn.textContent = '×';
+      removeBtn.title = 'Remove zone';
+      removeBtn.addEventListener('click', () => {
+        const updated = [...(this._config.zones || DEFAULTS.zones)];
+        updated.splice(i, 1);
+        this._config = { ...this._config, zones: updated };
+        this._fire();
+        this._render();
+      });
+      header.appendChild(removeBtn);
+      row.appendChild(header);
+
+      const nameField = this._makeTextField('Name', z.name || '', (val) => {
+        const updated = [...(this._config.zones || DEFAULTS.zones)];
+        updated[i] = { ...updated[i], name: val };
+        this._config = { ...this._config, zones: updated };
+        this._fire();
+      });
+      row.appendChild(nameField);
+
+      const entityField = this._makeEntityField('Entity', z.entity || '', ['climate'], (val) => {
+        const updated = [...(this._config.zones || DEFAULTS.zones)];
+        updated[i] = { ...updated[i], entity: val };
+        this._config = { ...this._config, zones: updated };
+        this._fire();
+      });
+      row.appendChild(entityField);
+
+      container.appendChild(row);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn add-row';
+    addBtn.textContent = '+ Add Zone';
+    addBtn.addEventListener('click', () => {
+      const updated = [...(this._config.zones || DEFAULTS.zones)];
+      updated.push({ entity: '', name: '' });
+      this._config = { ...this._config, zones: updated };
+      this._fire();
+      this._render();
+    });
+    container.appendChild(addBtn);
+  }
+
+  _buildGroup(container, key, values, fields) {
+    for (const [prop, label, type] of fields) {
+      if (type === 'text') {
+        container.appendChild(this._makeTextField(label, values[prop] || '', (val) => {
+          const group = { ...(this._config[key] || {}), [prop]: val };
+          this._config = { ...this._config, [key]: group };
+          this._fire();
+        }));
+      } else {
+        container.appendChild(this._makeEntityField(label, values[prop] || '', [type], (val) => {
+          const group = { ...(this._config[key] || {}), [prop]: val };
+          this._config = { ...this._config, [key]: group };
+          this._fire();
+        }));
+      }
+    }
+  }
+
+  _makeTextField(label, value, onChange) {
+    const div = document.createElement('div');
+    div.className = 'field';
+    const lbl = document.createElement('label');
+    lbl.textContent = label;
+    div.appendChild(lbl);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    input.addEventListener('change', (ev) => onChange(ev.target.value));
+    div.appendChild(input);
+    return div;
+  }
+
+  _makeEntityField(label, value, domains, onChange) {
+    const div = document.createElement('div');
+    div.className = 'field';
+    const lbl = document.createElement('label');
+    lbl.textContent = label;
+    div.appendChild(lbl);
+    const picker = document.createElement('ha-entity-picker');
+    picker.hass = this._hass;
+    picker.value = value;
+    picker.includeDomains = domains;
+    picker.allowCustomEntity = true;
+    picker.addEventListener('value-changed', (ev) => {
+      onChange(ev.detail.value || '');
+    });
+    div.appendChild(picker);
+    return div;
+  }
+}
+
+customElements.define('heating-system-card-editor', HeatingSystemCardEditor);
 customElements.define('heating-system-card', HeatingSystemCard);
 
 window.customCards = window.customCards || [];

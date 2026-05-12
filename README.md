@@ -26,6 +26,8 @@ Shows zone thermostats, buffer tank, DHW tank, outdoor temperature, recirculatio
 
 ## Configuration
 
+The card includes a visual editor — use the UI to configure zones, entities, and names directly from the dashboard editor. You can also configure via YAML:
+
 ```yaml
 type: custom:heating-system-card
 zones:
@@ -85,6 +87,7 @@ type: custom:heating-system-card
 - **Geothermal**: Border turns orange when the blower is running. Shows Heat of Extraction (kW), Total Power (kW), and COP.
 - **Configurable names**: Every box label (zones, buffer, DHW, outdoor, recirc, geothermal) can be renamed via the `name` field in config.
 - **Dynamic zone count**: Add or remove zones in config — the layout adjusts automatically.
+- **Visual editor**: Configure zones, entities, and names from the HA dashboard UI — no YAML required.
 - **Click any box** to open the Home Assistant more-info dialog for that entity.
 - **Theme-aware**: Text, borders, and surfaces inherit from HA theme CSS custom properties (`--primary-text-color`, `--secondary-text-color`, `--disabled-text-color`, `--card-background-color`, `--divider-color`). Override `--hsc-*` variables for fine-grained control.
 
