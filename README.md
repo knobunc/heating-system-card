@@ -42,13 +42,11 @@ zones:
   - entity: climate.office
     name: Office
 buffer:
-  name: BUFFER
+  name: Buffer
   temp: sensor.aeco_0982_tank
   target: sensor.aeco_0982_tank_target
   state: sensor.aeco_0982_tank_state
   pump: binary_sensor.aeco_0982_pump_1
-  wwsd: sensor.aeco_0982_wwsd_temperature
-  reset_outdoor: sensor.aeco_0982_outdoor_reset_temperature
 dhw:
   name: DHW
   temp: sensor.aeco_0982_dhw_tank
@@ -56,20 +54,22 @@ dhw:
   state: sensor.aeco_0982_dhw_tank_state
   pump: binary_sensor.aeco_0982_pump_2
 outdoor:
-  name: OUTDOOR
+  name: Outdoor
   entity: sensor.aeco_0982_outdoor
+  wwsd: sensor.aeco_0982_wwsd_temperature
+  reset_outdoor: sensor.aeco_0982_outdoor_reset_temperature
 recirc:
-  name: RECIRC
+  name: Recirc
   entity: switch.lower_equipment_room_recirculator_pump
 geo:
-  name: GEOTHERMAL
+  name: Geothermal
   heat_of_extraction: sensor.waterfurnace_water_compressor_heat_of_extraction
   total_power: sensor.waterfurnace_water_heat_pump_total_power_usage
   cop: sensor.waterfurnace_water_coefficient_of_power
   running: binary_sensor.waterfurnace_water_blower_running
 ```
 
-All entity IDs and names above are defaults — you can omit any section to use them, or override individual fields. The `outdoor` and `recirc` sections also accept a plain entity string for brevity (e.g. `outdoor: sensor.my_outdoor_temp`).
+All entity IDs and names above are defaults — you can omit any section to use them, or override individual fields.
 
 Minimal config using all defaults:
 

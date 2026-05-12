@@ -9,13 +9,11 @@ const DEFAULTS = {
     { entity: 'climate.office', name: 'Office' },
   ],
   buffer: {
-    name: 'BUFFER',
+    name: 'Buffer',
     temp: 'sensor.aeco_0982_tank',
     target: 'sensor.aeco_0982_tank_target',
     state: 'sensor.aeco_0982_tank_state',
     pump: 'binary_sensor.aeco_0982_pump_1',
-    wwsd: 'sensor.aeco_0982_wwsd_temperature',
-    reset_outdoor: 'sensor.aeco_0982_outdoor_reset_temperature',
   },
   dhw: {
     name: 'DHW',
@@ -24,10 +22,15 @@ const DEFAULTS = {
     state: 'sensor.aeco_0982_dhw_tank_state',
     pump: 'binary_sensor.aeco_0982_pump_2',
   },
-  outdoor: { name: 'OUTDOOR', entity: 'sensor.aeco_0982_outdoor' },
-  recirc: { name: 'RECIRC', entity: 'switch.lower_equipment_room_recirculator_pump' },
+  outdoor: {
+    name: 'Outdoor',
+    entity: 'sensor.aeco_0982_outdoor',
+    wwsd: 'sensor.aeco_0982_wwsd_temperature',
+    reset_outdoor: 'sensor.aeco_0982_outdoor_reset_temperature',
+  },
+  recirc: { name: 'Recirc', entity: 'switch.lower_equipment_room_recirculator_pump' },
   geo: {
-    name: 'GEOTHERMAL',
+    name: 'Geothermal',
     heat_of_extraction: 'sensor.waterfurnace_water_compressor_heat_of_extraction',
     total_power: 'sensor.waterfurnace_water_heat_pump_total_power_usage',
     cop: 'sensor.waterfurnace_water_coefficient_of_power',
@@ -67,8 +70,8 @@ class HeatingSystemCard extends HTMLElement {
       zones: cz.length > 0 ? cz : DEFAULTS.zones,
       buffer: { ...DEFAULTS.buffer, ...(config.buffer || {}) },
       dhw: { ...DEFAULTS.dhw, ...(config.dhw || {}) },
-      outdoor: { ...DEFAULTS.outdoor, ...(typeof config.outdoor === 'string' ? { entity: config.outdoor } : config.outdoor || {}) },
-      recirc: { ...DEFAULTS.recirc, ...(typeof config.recirc === 'string' ? { entity: config.recirc } : config.recirc || {}) },
+      outdoor: { ...DEFAULTS.outdoor, ...(config.outdoor || {}) },
+      recirc: { ...DEFAULTS.recirc, ...(config.recirc || {}) },
       geo: { ...DEFAULTS.geo, ...(config.geo || {}) },
     };
     this._built = false;
@@ -353,10 +356,10 @@ class HeatingSystemCard extends HTMLElement {
 
     e.ot.textContent = fmt(v(c.outdoor.entity));
     const outdoor = Number(v(c.outdoor.entity));
-    const wwsd = Number(v(c.buffer.wwsd));
+    const wwsd = Number(v(c.outdoor.wwsd));
     const aboveWwsd = !isNaN(outdoor) && !isNaN(wwsd) && outdoor >= wwsd;
     e.ob.style.stroke = aboveWwsd ? '' : HEAT;
-    const resetOut = Number(v(c.buffer.reset_outdoor));
+    const resetOut = Number(v(c.outdoor.reset_outdoor));
     e.ow.textContent = (!isNaN(resetOut) && !isNaN(wwsd)) ? `${fmt(resetOut)} to ${fmt(wwsd)}` : '';
 
     const recOn = v(c.recirc.entity) === 'on';
@@ -540,8 +543,6 @@ class HeatingSystemCardEditor extends HTMLElement {
       ['target', 'Target', 'sensor'],
       ['state', 'State', 'sensor'],
       ['pump', 'Pump', 'binary_sensor'],
-      ['wwsd', 'WWSD', 'sensor'],
-      ['reset_outdoor', 'Reset Outdoor', 'sensor'],
     ]);
     this._buildGroup($('dhw-section'), 'dhw', dhw, [
       ['name', 'Name', 'text'],
@@ -553,6 +554,10 @@ class HeatingSystemCardEditor extends HTMLElement {
     this._buildGroup($('outdoor-section'), 'outdoor', out, [
       ['name', 'Name', 'text'],
       ['entity', 'Entity', 'sensor'],
+    ]);
+    this._buildGroup($('outdoor-section'), 'outdoor', out, [
+      ['wwsd', 'WWSD', 'sensor'],
+      ['reset_outdoor', 'Reset Outdoor', 'sensor'],
     ]);
     this._buildGroup($('recirc-section'), 'recirc', rec, [
       ['name', 'Name', 'text'],
