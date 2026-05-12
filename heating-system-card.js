@@ -44,7 +44,7 @@ function fmt(v) {
 }
 
 function fmtD(v) {
-  if (v == null || v === 'unavailable' || v === 'unknown') return '--';
+  if (v == null || v === 'unavailable' || v === 'unknown') return '—';
   return Number(v).toFixed(1);
 }
 
@@ -241,7 +241,7 @@ class HeatingSystemCard extends HTMLElement {
           </g>
 
           <!-- Buffer tank -->
-          <g data-entity="${c.buffer.state}" class="click">
+          <g data-entity="${c.buffer.temp}" class="click">
             <rect id="br" x="${bx}" y="${r2y}" width="${bufW}" height="${bufH}" rx="8" class="box"/>
             <text x="${bcx}" y="${r2y + 19}" text-anchor="middle" class="label">${c.buffer.name}</text>
             <text id="bt" x="${bcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
@@ -249,7 +249,7 @@ class HeatingSystemCard extends HTMLElement {
           </g>
 
           <!-- DHW tank -->
-          <g data-entity="${c.dhw.state}" class="click">
+          <g data-entity="${c.dhw.temp}" class="click">
             <rect id="dr" x="${dx}" y="${r2y}" width="${dhwW}" height="${dhwH}" rx="8" class="box"/>
             <text x="${dcx}" y="${r2y + 19}" text-anchor="middle" class="label">${c.dhw.name}</text>
             <text id="dt" x="${dcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
@@ -264,20 +264,26 @@ class HeatingSystemCard extends HTMLElement {
           </g>
 
           <!-- Geothermal -->
-          <g data-entity="${c.geo.running}" class="click">
+          <g>
             <rect id="gr" x="${gx}" y="${geoTop}" width="${geoW}" height="${geoH}" rx="8" class="box"/>
-            <text x="${gcx}" y="${geoTop + 19}" text-anchor="middle" class="label">${c.geo.name}</text>
+            <text data-entity="${c.geo.running}" x="${gcx}" y="${geoTop + 19}" text-anchor="middle" class="label click">${c.geo.name}</text>
 
-            <text x="${col1}" y="${geoTop + 36}" text-anchor="middle" class="sub">HoE</text>
-            <text id="gh" x="${col1}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
-            <text x="${col1}" y="${geoTop + 64}" text-anchor="middle" class="unit">kW</text>
+            <g data-entity="${c.geo.heat_of_extraction}" class="click">
+              <text x="${col1}" y="${geoTop + 36}" text-anchor="middle" class="sub">HoE</text>
+              <text id="gh" x="${col1}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
+              <text x="${col1}" y="${geoTop + 64}" text-anchor="middle" class="unit">kW</text>
+            </g>
 
-            <text x="${col2}" y="${geoTop + 36}" text-anchor="middle" class="sub">POWER</text>
-            <text id="gp" x="${col2}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
-            <text x="${col2}" y="${geoTop + 64}" text-anchor="middle" class="unit">kW</text>
+            <g data-entity="${c.geo.total_power}" class="click">
+              <text x="${col2}" y="${geoTop + 36}" text-anchor="middle" class="sub">POWER</text>
+              <text id="gp" x="${col2}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
+              <text x="${col2}" y="${geoTop + 64}" text-anchor="middle" class="unit">kW</text>
+            </g>
 
-            <text x="${col3}" y="${geoTop + 36}" text-anchor="middle" class="sub">COP</text>
-            <text id="gc" x="${col3}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
+            <g data-entity="${c.geo.cop}" class="click">
+              <text x="${col3}" y="${geoTop + 36}" text-anchor="middle" class="sub">COP</text>
+              <text id="gc" x="${col3}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
+            </g>
           </g>
 
         </svg>
