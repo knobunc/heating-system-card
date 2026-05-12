@@ -18,7 +18,42 @@
     #card-container {
       flex: 1;
       max-width: 720px;
+      --primary-text-color: #e0e2ea;
+      --secondary-text-color: #6b7590;
+      --disabled-text-color: #3d4a5c;
+      --card-background-color: #1e2130;
+      --ha-card-background: #1e2130;
+      --divider-color: #2a3040;
     }
+    body.light {
+      background: #f0f0f0;
+      color: #1a1a1a;
+    }
+    body.light #card-container {
+      --primary-text-color: #212121;
+      --secondary-text-color: #727272;
+      --disabled-text-color: #bdbdbd;
+      --card-background-color: #ffffff;
+      --ha-card-background: #ffffff;
+      --divider-color: #e0e0e0;
+    }
+    body.light .panel {
+      background: #ffffff;
+      border-color: #e0e0e0;
+    }
+    body.light .panel h3 { color: #727272; }
+    body.light .row input[type="number"] {
+      background: #f5f5f5;
+      border-color: #e0e0e0;
+      color: #212121;
+    }
+    body.light button {
+      background: #e0e0e0;
+      border-color: #bdbdbd;
+      color: #212121;
+    }
+    body.light button:hover { background: #d0d0d0; }
+    body.light .hint { color: #bdbdbd; }
     #controls {
       width: 280px;
       flex-shrink: 0;
@@ -81,7 +116,7 @@
     }
   </style>
 </head>
-<body>
+<body class="light">
 
 <div id="card-container"></div>
 <div id="controls">
@@ -172,6 +207,7 @@
     </div>
   </div>
   <button onclick="randomize()">Randomize All</button>
+  <button id="btn-theme" onclick="toggleTheme()">Switch to Dark</button>
   <p class="hint">Click any box in the card to test more-info events (logged to console)</p>
 </div>
 
@@ -266,6 +302,13 @@
 
   function pushHass() {
     card.hass = buildHass();
+  }
+
+  function toggleTheme() {
+    document.body.classList.toggle('light');
+    const isLight = document.body.classList.contains('light');
+    document.getElementById('btn-theme').textContent = isLight ? 'Switch to Dark' : 'Switch to Light';
+    pushHass();
   }
 
   function toggleDisabled(i) {

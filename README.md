@@ -79,6 +79,7 @@ type: custom:heating-system-card
 - **Recirc pump**: Border and connector turn green when the switch is on.
 - **Geothermal**: Border turns blue when the blower is running. Shows Heat of Extraction (kW), Total Power (kW), and COP.
 - **Click any box** to open the Home Assistant more-info dialog for that entity.
+- **Theme-aware**: Text, borders, and surfaces inherit from HA theme CSS custom properties (`--primary-text-color`, `--secondary-text-color`, `--disabled-text-color`, `--card-background-color`, `--divider-color`). Override `--hsc-*` variables for fine-grained control.
 
 ## License
 

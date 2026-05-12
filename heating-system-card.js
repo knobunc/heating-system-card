@@ -1,21 +1,5 @@
-const IDLE = '#2a3040';
 const HEAT = '#f5a623';
-const DHW_ACTIVE = '#2d9cff';
-const RECIRC_ON = '#27ae60';
 const GEO_ON = '#2d9cff';
-const SURFACE = '#1e2130';
-const BG = '#111318';
-const TEXT = '#e0e2ea';
-const MUTED = '#6b7590';
-const DIM = '#3d4a5c';
-
-const ZONES = [
-  { x: 18, cx: 72, hy: 148 },
-  { x: 162, cx: 216, hy: 138 },
-  { x: 306, cx: 360, hy: 128 },
-  { x: 450, cx: 504, hy: 118 },
-  { x: 594, cx: 648, hy: 108 },
-];
 
 const DEFAULTS = {
   zones: [
@@ -76,7 +60,7 @@ class HeatingSystemCard extends HTMLElement {
     if (!config) throw new Error('Config required');
     const cz = config.zones || [];
     this._config = {
-      zones: DEFAULTS.zones.map((d, i) => ({ ...d, ...(cz[i] || {}) })),
+      zones: cz.length > 0 ? cz : DEFAULTS.zones,
       buffer: { ...DEFAULTS.buffer, ...(config.buffer || {}) },
       dhw: { ...DEFAULTS.dhw, ...(config.dhw || {}) },
       outdoor: config.outdoor || DEFAULTS.outdoor,
@@ -101,131 +85,179 @@ class HeatingSystemCard extends HTMLElement {
 
   _build() {
     const c = this._config;
+    const n = c.zones.length;
+
+    const cardW = 108, cardH = 62, zGap = 18, margin = 18;
+    const outW = 96, outH = 54, bufW = 148, bufH = 70;
+    const dhwW = 148, dhwH = 70, recW = 88, recH = 54;
+    const geoW = 180, geoH = 78;
+    const g1 = 20, g2 = 120, g3 = 18;
+
+    const zoneRowW = n * cardW + Math.max(0, n - 1) * zGap;
+    const row2W = outW + g1 + bufW + g2 + dhwW + g3 + recW;
+    const W = Math.max(zoneRowW + 2 * margin, row2W + 2 * margin);
+    const H = 360;
+
+    const zLeft = (W - zoneRowW) / 2;
+    const zp = Array.from({ length: n }, (_, i) => {
+      const x = zLeft + i * (cardW + zGap);
+      return { x, cx: x + cardW / 2 };
+    });
+
+    const r2 = (W - row2W) / 2;
+    const ox = r2, ocx = ox + outW / 2;
+    const bx = r2 + outW + g1, bcx = bx + bufW / 2;
+    const dx = bx + bufW + g2, dcx = dx + dhwW / 2;
+    const rx = dx + dhwW + g3, rcx = rx + recW / 2;
+
+    const busY = 108;
+    const busX1 = Math.min(zp[0].cx, bcx);
+    const busX2 = Math.max(zp[n - 1].cx, bcx);
+
+    const r2y = 138;
+    const tankBot = r2y + bufH;
+    const tankCy = r2y + bufH / 2;
+    const sideY = Math.round(tankCy - outH / 2);
+    const connY = tankCy;
+
+    const gcx = (bcx + dcx) / 2;
+    const gx = gcx - geoW / 2;
+    const geoTop = 268;
+    const pipeKneeY = Math.round((tankBot + geoTop) / 2);
+    const spread = 40;
+    const geL = gcx - spread, geR = gcx + spread;
+    const col1 = gcx - 50, col2 = gcx, col3 = gcx + 50;
 
     let zoneCards = '';
     let zonePipes = '';
-    for (let i = 0; i < 5; i++) {
-      const z = ZONES[i];
-      const name = c.zones[i].name;
-      const entity = c.zones[i].entity;
-
+    for (let i = 0; i < n; i++) {
+      const z = zp[i];
       zoneCards += `
-        <g data-entity="${entity}" class="click">
-          <rect id="zr${i}" x="${z.x}" y="16" width="108" height="62" rx="7"
-                fill="${SURFACE}" stroke="${IDLE}" stroke-width="1"/>
-          <text x="${z.cx}" y="35" text-anchor="middle" class="label">${name}</text>
-          <text id="zt${i}" x="${z.cx}" y="55" text-anchor="middle" class="temp">--</text>
-          <text id="zs${i}" x="${z.cx}" y="70" text-anchor="middle" class="set">--</text>
+        <g data-entity="${c.zones[i].entity}" class="click">
+          <rect id="zr${i}" x="${z.x}" y="16" width="${cardW}" height="${cardH}" rx="7" class="box"/>
+          <text x="${z.cx}" y="35" text-anchor="middle" class="label">${c.zones[i].name}</text>
+          <text id="zt${i}" x="${z.cx}" y="58" text-anchor="middle" class="temp">--</text>
+          <text id="zs${i}" x="${z.cx}" y="73" text-anchor="middle" class="set">--</text>
         </g>`;
-
       zonePipes += `
-        <line id="zpv${i}" x1="${z.cx}" y1="78" x2="${z.cx}" y2="${z.hy}"
-              stroke="${IDLE}" stroke-width="2.5" stroke-linecap="round"/>
-        <line id="zph${i}" x1="${z.cx}" y1="${z.hy}" x2="242" y2="${z.hy}"
-              stroke="${IDLE}" stroke-width="2.5" stroke-linecap="round"/>`;
+        <line id="zpv${i}" x1="${z.cx}" y1="78" x2="${z.cx}" y2="${busY}" class="pipe"/>`;
     }
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; }
-        ha-card { background: ${BG}; overflow: hidden; }
+        :host {
+          display: block;
+          --hsc-surface: var(--card-background-color, var(--ha-card-background, #1e2130));
+          --hsc-idle: var(--divider-color, #2a3040);
+          --hsc-text: var(--primary-text-color, #e0e2ea);
+          --hsc-muted: var(--secondary-text-color, #6b7590);
+          --hsc-dim: var(--disabled-text-color, #3d4a5c);
+        }
+        ha-card { overflow: hidden; }
         svg {
           width: 100%; display: block;
           font-family: 'Segoe UI', Roboto, sans-serif;
         }
-        .label {
-          font-size: 9px; text-transform: uppercase;
-          letter-spacing: 0.05em; fill: ${MUTED};
+        .box {
+          fill: var(--hsc-surface);
+          stroke: var(--hsc-idle);
+          stroke-width: 1;
         }
-        .temp { font-size: 22px; font-weight: 600; fill: ${TEXT}; }
-        .temp-lg { font-size: 20px; font-weight: 600; fill: ${TEXT}; }
-        .temp-sm { font-size: 18px; font-weight: 600; fill: ${TEXT}; }
-        .set { font-size: 11px; fill: ${MUTED}; }
-        .val { font-size: 14px; font-weight: 600; fill: ${TEXT}; }
+        .pipe {
+          fill: none;
+          stroke: var(--hsc-idle);
+          stroke-width: 2.5;
+          stroke-linecap: round;
+        }
+        .pipe-j {
+          fill: none;
+          stroke: var(--hsc-idle);
+          stroke-width: 2.5;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        .label {
+          font-size: 13px; text-transform: uppercase;
+          letter-spacing: 0.05em; fill: var(--hsc-muted);
+        }
+        .temp { font-size: 22px; font-weight: 600; fill: var(--hsc-text); }
+        .temp-lg { font-size: 20px; font-weight: 600; fill: var(--hsc-text); }
+        .temp-sm { font-size: 18px; font-weight: 600; fill: var(--hsc-text); }
+        .set { font-size: 11px; fill: var(--hsc-muted); }
+        .val { font-size: 14px; font-weight: 600; fill: var(--hsc-text); }
         .sub {
           font-size: 9px; text-transform: uppercase;
-          letter-spacing: 0.05em; fill: ${MUTED};
+          letter-spacing: 0.05em; fill: var(--hsc-muted);
         }
-        .unit { font-size: 9px; fill: ${MUTED}; }
+        .unit { font-size: 9px; fill: var(--hsc-muted); }
+        .status { font-size: 11px; font-weight: 600; fill: var(--hsc-dim); }
+        .wwsd { font-size: 11px; fill: var(--hsc-muted); }
         .click { cursor: pointer; }
       </style>
       <ha-card>
-        <svg viewBox="0 0 720 460" xmlns="http://www.w3.org/2000/svg">
+        <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
 
           <!-- Pipes (behind boxes) -->
           ${zonePipes}
-          <line id="trunk" x1="242" y1="108" x2="242" y2="185"
-                stroke="${IDLE}" stroke-width="2.5" stroke-linecap="round"/>
+          <line id="bus" x1="${busX1}" y1="${busY}" x2="${busX2}" y2="${busY}" class="pipe"/>
+          <line id="trunk" x1="${bcx}" y1="${busY}" x2="${bcx}" y2="${r2y}" class="pipe"/>
 
-          <line id="ob" x1="148" y1="225" x2="168" y2="225"
-                stroke="${IDLE}" stroke-width="2.5" stroke-linecap="round"/>
+          <line id="ob" x1="${ox + outW}" y1="${connY}" x2="${bx}" y2="${connY}" class="pipe"/>
 
-          <line id="rc" x1="584" y1="225" x2="602" y2="225"
-                stroke="${IDLE}" stroke-width="2.5" stroke-linecap="round"/>
+          <line id="rc" x1="${dx + dhwW}" y1="${connY}" x2="${rx}" y2="${connY}" class="pipe"/>
 
-          <polyline id="pbg" points="242,271 242,310 352,310 352,335"
-                    fill="none" stroke="${IDLE}" stroke-width="2.5"
-                    stroke-linejoin="round" stroke-linecap="round"/>
-          <polyline id="pdg" points="510,271 510,310 408,310 408,335"
-                    fill="none" stroke="${IDLE}" stroke-width="2.5"
-                    stroke-linejoin="round" stroke-linecap="round"/>
+          <polyline id="pbg" points="${bcx},${tankBot} ${bcx},${pipeKneeY} ${geL},${pipeKneeY} ${geL},${geoTop}" class="pipe-j"/>
+          <polyline id="pdg" points="${dcx},${tankBot} ${dcx},${pipeKneeY} ${geR},${pipeKneeY} ${geR},${geoTop}" class="pipe-j"/>
 
           <!-- Zone cards -->
           ${zoneCards}
 
           <!-- Outdoor -->
           <g data-entity="${c.outdoor}" class="click">
-            <rect id="or" x="52" y="198" width="96" height="54" rx="7"
-                  fill="${SURFACE}" stroke="${IDLE}" stroke-width="1"/>
-            <text x="100" y="214" text-anchor="middle" class="label">OUTDOOR</text>
-            <text id="ot" x="100" y="235" text-anchor="middle" class="temp-sm">--</text>
-            <text id="ow" x="100" y="248" text-anchor="middle"
-                  style="font-size:8px;letter-spacing:0.05em;fill:${DIM}"></text>
+            <rect id="or" x="${ox}" y="${sideY}" width="${outW}" height="${outH}" rx="7" class="box"/>
+            <text x="${ocx}" y="${sideY + 19}" text-anchor="middle" class="label">OUTDOOR</text>
+            <text id="ot" x="${ocx}" y="${sideY + 37}" text-anchor="middle" class="temp-sm">--</text>
+            <text id="ow" x="${ocx}" y="${sideY + 50}" text-anchor="middle" class="wwsd"></text>
           </g>
 
           <!-- Buffer tank -->
           <g data-entity="${c.buffer.state}" class="click">
-            <rect id="br" x="168" y="185" width="148" height="86" rx="8"
-                  fill="${SURFACE}" stroke="${IDLE}" stroke-width="1"/>
-            <text x="242" y="206" text-anchor="middle" class="label">BUFFER</text>
-            <text id="bt" x="242" y="234" text-anchor="middle" class="temp-lg">--</text>
-            <text id="bs" x="242" y="256" text-anchor="middle" class="set">--</text>
+            <rect id="br" x="${bx}" y="${r2y}" width="${bufW}" height="${bufH}" rx="8" class="box"/>
+            <text x="${bcx}" y="${r2y + 19}" text-anchor="middle" class="label">BUFFER</text>
+            <text id="bt" x="${bcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
+            <text id="bs" x="${bcx}" y="${r2y + 57}" text-anchor="middle" class="set">--</text>
           </g>
 
           <!-- DHW tank -->
           <g data-entity="${c.dhw.state}" class="click">
-            <rect id="dr" x="436" y="185" width="148" height="86" rx="8"
-                  fill="${SURFACE}" stroke="${IDLE}" stroke-width="1"/>
-            <text x="510" y="206" text-anchor="middle" class="label">DHW</text>
-            <text id="dt" x="510" y="234" text-anchor="middle" class="temp-lg">--</text>
-            <text id="ds" x="510" y="256" text-anchor="middle" class="set">--</text>
+            <rect id="dr" x="${dx}" y="${r2y}" width="${dhwW}" height="${dhwH}" rx="8" class="box"/>
+            <text x="${dcx}" y="${r2y + 19}" text-anchor="middle" class="label">DHW</text>
+            <text id="dt" x="${dcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
+            <text id="ds" x="${dcx}" y="${r2y + 57}" text-anchor="middle" class="set">--</text>
           </g>
 
           <!-- Recirc -->
           <g data-entity="${c.recirc}" class="click">
-            <rect id="rr" x="602" y="198" width="88" height="54" rx="7"
-                  fill="${SURFACE}" stroke="${IDLE}" stroke-width="1"/>
-            <text x="646" y="217" text-anchor="middle" class="label">RECIRC</text>
-            <text id="rs" x="646" y="240" text-anchor="middle"
-                  style="font-size:11px;font-weight:600;fill:${DIM}">OFF</text>
+            <rect id="rr" x="${rx}" y="${sideY}" width="${recW}" height="${recH}" rx="7" class="box"/>
+            <text x="${rcx}" y="${sideY + 19}" text-anchor="middle" class="label">RECIRC</text>
+            <text id="rs" x="${rcx}" y="${sideY + 37}" text-anchor="middle" class="status">OFF</text>
           </g>
 
           <!-- Geothermal -->
           <g data-entity="${c.geo.running}" class="click">
-            <rect id="gr" x="280" y="335" width="240" height="108" rx="8"
-                  fill="${SURFACE}" stroke="${IDLE}" stroke-width="1"/>
-            <text x="400" y="358" text-anchor="middle" class="label">GEOTHERMAL</text>
+            <rect id="gr" x="${gx}" y="${geoTop}" width="${geoW}" height="${geoH}" rx="8" class="box"/>
+            <text x="${gcx}" y="${geoTop + 19}" text-anchor="middle" class="label">GEOTHERMAL</text>
 
-            <text x="330" y="390" text-anchor="middle" class="sub">HoE</text>
-            <text id="gh" x="330" y="412" text-anchor="middle" class="val">--</text>
-            <text x="330" y="428" text-anchor="middle" class="unit">kW</text>
+            <text x="${col1}" y="${geoTop + 36}" text-anchor="middle" class="sub">HoE</text>
+            <text id="gh" x="${col1}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
+            <text x="${col1}" y="${geoTop + 64}" text-anchor="middle" class="unit">kW</text>
 
-            <text x="400" y="390" text-anchor="middle" class="sub">POWER</text>
-            <text id="gp" x="400" y="412" text-anchor="middle" class="val">--</text>
-            <text x="400" y="428" text-anchor="middle" class="unit">kW</text>
+            <text x="${col2}" y="${geoTop + 36}" text-anchor="middle" class="sub">POWER</text>
+            <text id="gp" x="${col2}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
+            <text x="${col2}" y="${geoTop + 64}" text-anchor="middle" class="unit">kW</text>
 
-            <text x="470" y="390" text-anchor="middle" class="sub">COP</text>
-            <text id="gc" x="470" y="412" text-anchor="middle" class="val">--</text>
+            <text x="${col3}" y="${geoTop + 36}" text-anchor="middle" class="sub">COP</text>
+            <text id="gc" x="${col3}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
           </g>
 
         </svg>
@@ -233,11 +265,11 @@ class HeatingSystemCard extends HTMLElement {
 
     const $ = (id) => this.shadowRoot.getElementById(id);
     this._el = {
-      z: Array.from({ length: 5 }, (_, i) => ({
+      z: Array.from({ length: n }, (_, i) => ({
         r: $(`zr${i}`), t: $(`zt${i}`), s: $(`zs${i}`),
-        pv: $(`zpv${i}`), ph: $(`zph${i}`),
+        pv: $(`zpv${i}`),
       })),
-      trunk: $('trunk'),
+      bus: $('bus'), trunk: $('trunk'),
       ob: $('ob'), or: $('or'), ow: $('ow'),
       br: $('br'), bt: $('bt'), bs: $('bs'),
       dr: $('dr'), dt: $('dt'), ds: $('ds'),
@@ -265,68 +297,60 @@ class HeatingSystemCard extends HTMLElement {
     const v = (id) => h.states[id]?.state;
 
     let anyCalling = false;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < c.zones.length; i++) {
       const ent = h.states[c.zones[i].entity];
       const calling = ent?.attributes?.hvac_action === 'heating';
       if (calling) anyCalling = true;
 
       const disabled = ent?.state === 'off';
       const zi = e.z[i];
-      zi.r.setAttribute('stroke', calling ? HEAT : IDLE);
-      zi.r.setAttribute('stroke-width', calling ? '1.5' : '1');
+      zi.r.style.stroke = calling ? HEAT : '';
+      zi.r.style.strokeWidth = calling ? '1.5' : '';
       zi.t.textContent = fmt(ent?.attributes?.current_temperature);
-      zi.t.style.fill = disabled ? DIM : TEXT;
-      zi.s.textContent = fmt(ent?.attributes?.temperature);
-      zi.s.style.fill = calling ? HEAT : MUTED;
-      zi.pv.setAttribute('stroke', calling ? HEAT : IDLE);
-      zi.ph.setAttribute('stroke', calling ? HEAT : IDLE);
+      zi.t.style.fill = disabled ? 'var(--hsc-dim)' : '';
+      zi.s.textContent = disabled ? 'OFF' : fmt(ent?.attributes?.temperature);
+      zi.s.style.fill = calling ? HEAT : '';
+      zi.pv.style.stroke = calling ? HEAT : '';
     }
-    e.trunk.setAttribute('stroke', anyCalling ? HEAT : IDLE);
+    e.bus.style.stroke = anyCalling ? HEAT : '';
+    e.trunk.style.stroke = anyCalling ? HEAT : '';
 
     const bufHeat = v(c.buffer.state) === 'Heat';
-    e.br.setAttribute('stroke', bufHeat ? HEAT : IDLE);
-    e.br.setAttribute('stroke-width', bufHeat ? '1.5' : '1');
+    e.br.style.stroke = bufHeat ? HEAT : '';
+    e.br.style.strokeWidth = bufHeat ? '1.5' : '';
     e.bt.textContent = fmt(v(c.buffer.temp));
-    e.bs.textContent = `SET ${fmt(v(c.buffer.target))}`;
+    e.bs.textContent = fmt(v(c.buffer.target));
 
     const dhwHeat = v(c.dhw.state) === 'Heat';
-    e.dr.setAttribute('stroke', dhwHeat ? DHW_ACTIVE : IDLE);
-    e.dr.setAttribute('stroke-width', dhwHeat ? '1.5' : '1');
+    e.dr.style.stroke = dhwHeat ? HEAT : '';
+    e.dr.style.strokeWidth = dhwHeat ? '1.5' : '';
     e.dt.textContent = fmt(v(c.dhw.temp));
-    e.ds.textContent = `SET ${fmt(v(c.dhw.target))}`;
+    e.ds.textContent = fmt(v(c.dhw.target));
 
     e.ot.textContent = fmt(v(c.outdoor));
     const outdoor = Number(v(c.outdoor));
     const wwsd = Number(v(c.buffer.wwsd));
     const aboveWwsd = !isNaN(outdoor) && !isNaN(wwsd) && outdoor >= wwsd;
-    e.ob.setAttribute('stroke', aboveWwsd ? IDLE : HEAT);
-    e.or.setAttribute('stroke', aboveWwsd ? DIM : IDLE);
-    if (aboveWwsd) {
-      e.ow.textContent = 'WWSD';
-      e.ow.style.fill = DIM;
-    } else if (!isNaN(wwsd)) {
-      e.ow.textContent = `WWSD ${fmt(wwsd)}`;
-      e.ow.style.fill = DIM;
-    } else {
-      e.ow.textContent = '';
-    }
+    e.ob.style.stroke = aboveWwsd ? '' : HEAT;
+    const resetOut = Number(v(c.buffer.reset_outdoor));
+    e.ow.textContent = (!isNaN(resetOut) && !isNaN(wwsd)) ? `${fmt(resetOut)} to ${fmt(wwsd)}` : '';
 
     const recOn = v(c.recirc) === 'on';
-    e.rr.setAttribute('stroke', recOn ? RECIRC_ON : IDLE);
-    e.rr.setAttribute('stroke-width', recOn ? '1.5' : '1');
-    e.rc.setAttribute('stroke', recOn ? RECIRC_ON : IDLE);
+    e.rr.style.stroke = recOn ? HEAT : '';
+    e.rr.style.strokeWidth = recOn ? '1.5' : '';
+    e.rc.style.stroke = recOn ? HEAT : '';
     e.rs.textContent = recOn ? 'ON' : 'OFF';
-    e.rs.style.fill = recOn ? RECIRC_ON : DIM;
+    e.rs.style.fill = recOn ? HEAT : '';
 
     const geoOn = v(c.geo.running) === 'on';
-    e.gr.setAttribute('stroke', geoOn ? GEO_ON : IDLE);
-    e.gr.setAttribute('stroke-width', geoOn ? '1.5' : '1');
+    e.gr.style.stroke = geoOn ? GEO_ON : '';
+    e.gr.style.strokeWidth = geoOn ? '1.5' : '';
     e.gh.textContent = fmtD(v(c.geo.heat_of_extraction));
     e.gp.textContent = fmtD(v(c.geo.total_power));
     e.gc.textContent = fmtD(v(c.geo.cop));
 
-    e.pbg.setAttribute('stroke', bufHeat ? HEAT : IDLE);
-    e.pdg.setAttribute('stroke', dhwHeat ? DHW_ACTIVE : IDLE);
+    e.pbg.style.stroke = bufHeat ? HEAT : '';
+    e.pdg.style.stroke = dhwHeat ? HEAT : '';
   }
 }
 
