@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heating System Card — Test Harness</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111318;
+      color: #e0e2ea;
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      gap: 24px;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    #card-container {
+      flex: 1;
+      max-width: 720px;
+    }
+    #controls {
+      width: 280px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      max-height: calc(100vh - 48px);
+    }
+    .panel {
+      background: #1e2130;
+      border: 1px solid #2a3040;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .panel h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7590;
+      margin-bottom: 8px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .row:last-child { margin-bottom: 0; }
+    .row label { font-size: 13px; }
+    .row input[type="range"] { width: 100px; }
+    .row input[type="number"] {
+      width: 60px;
+      background: #111318;
+      border: 1px solid #2a3040;
+      border-radius: 4px;
+      color: #e0e2ea;
+      padding: 2px 6px;
+      font-size: 13px;
+    }
+    button {
+      background: #2a3040;
+      border: 1px solid #3d4a5c;
+      border-radius: 4px;
+      color: #e0e2ea;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    button:hover { background: #3d4a5c; }
+    button.active { background: #f5a623; color: #111318; border-color: #f5a623; }
+    button.active-blue { background: #2d9cff; color: #111318; border-color: #2d9cff; }
+    button.active-green { background: #27ae60; color: #111318; border-color: #27ae60; }
+    button.active-dim { background: #3d4a5c; color: #111318; border-color: #3d4a5c; }
+    .hint {
+      font-size: 10px;
+      color: #3d4a5c;
+      margin-top: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<div id="card-container"></div>
+<div id="controls">
+  <div class="panel">
+    <h3>Zones</h3>
+    <div id="zone-controls"></div>
+  </div>
+  <div class="panel">
+    <h3>Buffer Tank</h3>
+    <div class="row">
+      <label>State</label>
+      <button id="btn-buffer" onclick="toggle('buffer')">Satisfied</button>
+    </div>
+    <div class="row">
+      <label>Temp</label>
+      <input type="number" id="buf-temp" value="138" onchange="pushHass()">
+    </div>
+    <div class="row">
+      <label>Target</label>
+      <input type="number" id="buf-target" value="110" onchange="pushHass()">
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Outdoor Reset Curve</h3>
+    <div class="row">
+      <label>WWSD</label>
+      <input type="number" id="buf-wwsd" value="55" onchange="pushHass()">
+    </div>
+    <div class="row">
+      <label>Min Tank</label>
+      <input type="number" id="buf-min" value="100" onchange="pushHass()">
+    </div>
+    <div class="row">
+      <label>Max Tank</label>
+      <input type="number" id="buf-max" value="145" onchange="pushHass()">
+    </div>
+    <div class="row">
+      <label>Reset Outdoor</label>
+      <input type="number" id="buf-reset" value="-10" onchange="pushHass()">
+    </div>
+  </div>
+  <div class="panel">
+    <h3>DHW Tank</h3>
+    <div class="row">
+      <label>State</label>
+      <button id="btn-dhw" onclick="toggle('dhw')">Off</button>
+    </div>
+    <div class="row">
+      <label>Temp</label>
+      <input type="number" id="dhw-temp" value="122" onchange="pushHass()">
+    </div>
+    <div class="row">
+      <label>Target</label>
+      <input type="number" id="dhw-target" value="120" onchange="pushHass()">
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Outdoor</h3>
+    <div class="row">
+      <label>Temp</label>
+      <input type="number" id="outdoor-temp" value="34" onchange="pushHass()">
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Recirc Pump</h3>
+    <div class="row">
+      <label>State</label>
+      <button id="btn-recirc" onclick="toggle('recirc')">Off</button>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Geothermal</h3>
+    <div class="row">
+      <label>Blower</label>
+      <button id="btn-geo" onclick="toggle('geo')">Off</button>
+    </div>
+    <div class="row">
+      <label>HoE (kW)</label>
+      <input type="number" id="geo-hoe" value="11.8" step="0.1" onchange="pushHass()">
+    </div>
+    <div class="row">
+      <label>Power (kW)</label>
+      <input type="number" id="geo-power" value="3.1" step="0.1" onchange="pushHass()">
+    </div>
+    <div class="row">
+      <label>COP</label>
+      <input type="number" id="geo-cop" value="3.8" step="0.1" onchange="pushHass()">
+    </div>
+  </div>
+  <button onclick="randomize()">Randomize All</button>
+  <p class="hint">Click any box in the card to test more-info events (logged to console)</p>
+</div>
+
+<script>
+  // Stub ha-card as a simple container
+  if (!customElements.get('ha-card')) {
+    class HaCard extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.shadowRoot.innerHTML = '<style>:host{display:block;border-radius:12px;overflow:hidden;}</style><slot></slot>';
+      }
+    }
+    customElements.define('ha-card', HaCard);
+  }
+
+  // Intercept more-info events
+  document.addEventListener('hass-more-info', (e) => {
+    console.log('more-info:', e.detail.entityId);
+  });
+</script>
+<script src="heating-system-card.js"></script>
+<script>
+  const ZONE_DEFS = [
+    { entity: 'climate.living_room', name: 'LR', temp: 72, set: 68 },
+    { entity: 'climate.bedroom', name: 'Bed', temp: 70, set: 67 },
+    { entity: 'climate.garage', name: 'Garage', temp: 58, set: 55 },
+    { entity: 'climate.downstairs', name: 'Lower', temp: 69, set: 68 },
+    { entity: 'climate.office', name: 'Office', temp: 71, set: 70 },
+  ];
+
+  const state = {
+    zones: ZONE_DEFS.map(() => false),
+    disabled: ZONE_DEFS.map(() => false),
+    buffer: false,
+    dhw: false,
+    recirc: false,
+    geo: false,
+  };
+
+  // Build zone toggle buttons
+  const zc = document.getElementById('zone-controls');
+  ZONE_DEFS.forEach((z, i) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<label>${z.name}</label><button id="btn-zd${i}" onclick="toggleDisabled(${i})">On</button><button id="btn-z${i}" onclick="toggleZone(${i})">Idle</button>`;
+    zc.appendChild(row);
+  });
+
+  function buildHass() {
+    const states = {};
+    ZONE_DEFS.forEach((z, i) => {
+      states[z.entity] = {
+        state: state.disabled[i] ? 'off' : 'heat',
+        attributes: {
+          hvac_action: state.zones[i] ? 'heating' : 'idle',
+          current_temperature: z.temp,
+          temperature: z.set,
+        },
+      };
+    });
+
+    const bufTemp = document.getElementById('buf-temp').value;
+    const bufTarget = document.getElementById('buf-target').value;
+    states['sensor.aeco_0982_tank'] = { state: bufTemp };
+    states['sensor.aeco_0982_tank_target'] = { state: bufTarget };
+    states['sensor.aeco_0982_tank_state'] = { state: state.buffer ? 'Heat' : 'Satisfied' };
+    states['binary_sensor.aeco_0982_pump_1'] = { state: state.buffer ? 'on' : 'off' };
+    states['sensor.aeco_0982_wwsd_temperature'] = { state: document.getElementById('buf-wwsd').value };
+    states['sensor.aeco_0982_min_tank_temperature'] = { state: document.getElementById('buf-min').value };
+    states['sensor.aeco_0982_max_tank_temperature'] = { state: document.getElementById('buf-max').value };
+    states['sensor.aeco_0982_outdoor_reset_temperature'] = { state: document.getElementById('buf-reset').value };
+
+    const dhwTemp = document.getElementById('dhw-temp').value;
+    const dhwTarget = document.getElementById('dhw-target').value;
+    states['sensor.aeco_0982_dhw_tank'] = { state: dhwTemp };
+    states['sensor.aeco_0982_dhw_tank_target'] = { state: dhwTarget };
+    states['sensor.aeco_0982_dhw_tank_state'] = { state: state.dhw ? 'Heat' : 'Off' };
+    states['binary_sensor.aeco_0982_pump_2'] = { state: state.dhw ? 'on' : 'off' };
+
+    states['sensor.aeco_0982_outdoor'] = { state: document.getElementById('outdoor-temp').value };
+
+    states['switch.lower_equipment_room_recirculator_pump'] = { state: state.recirc ? 'on' : 'off' };
+
+    states['binary_sensor.waterfurnace_water_blower_running'] = { state: state.geo ? 'on' : 'off' };
+    states['sensor.waterfurnace_water_compressor_heat_of_extraction'] = { state: document.getElementById('geo-hoe').value };
+    states['sensor.waterfurnace_water_heat_pump_total_power_usage'] = { state: document.getElementById('geo-power').value };
+    states['sensor.waterfurnace_water_coefficient_of_power'] = { state: document.getElementById('geo-cop').value };
+
+    return { states };
+  }
+
+  function pushHass() {
+    card.hass = buildHass();
+  }
+
+  function toggleDisabled(i) {
+    state.disabled[i] = !state.disabled[i];
+    const btn = document.getElementById(`btn-zd${i}`);
+    btn.textContent = state.disabled[i] ? 'Off' : 'On';
+    btn.className = state.disabled[i] ? 'active-dim' : '';
+    if (state.disabled[i] && state.zones[i]) {
+      state.zones[i] = false;
+      const zb = document.getElementById(`btn-z${i}`);
+      zb.textContent = 'Idle';
+      zb.className = '';
+    }
+    pushHass();
+  }
+
+  function toggleZone(i) {
+    state.zones[i] = !state.zones[i];
+    const btn = document.getElementById(`btn-z${i}`);
+    btn.textContent = state.zones[i] ? 'Heating' : 'Idle';
+    btn.className = state.zones[i] ? 'active' : '';
+    pushHass();
+  }
+
+  function toggle(key) {
+    state[key] = !state[key];
+    const btn = document.getElementById(`btn-${key}`);
+    if (key === 'buffer') {
+      btn.textContent = state.buffer ? 'Heat' : 'Satisfied';
+      btn.className = state.buffer ? 'active' : '';
+    } else if (key === 'dhw') {
+      btn.textContent = state.dhw ? 'Heat' : 'Off';
+      btn.className = state.dhw ? 'active-blue' : '';
+    } else if (key === 'recirc') {
+      btn.textContent = state.recirc ? 'On' : 'Off';
+      btn.className = state.recirc ? 'active-green' : '';
+    } else if (key === 'geo') {
+      btn.textContent = state.geo ? 'On' : 'Off';
+      btn.className = state.geo ? 'active-blue' : '';
+    }
+    pushHass();
+  }
+
+  function randomize() {
+    state.zones.forEach((_, i) => {
+      state.disabled[i] = Math.random() > 0.7;
+      state.zones[i] = state.disabled[i] ? false : Math.random() > 0.6;
+      const btn = document.getElementById(`btn-z${i}`);
+      btn.textContent = state.zones[i] ? 'Heating' : 'Idle';
+      btn.className = state.zones[i] ? 'active' : '';
+      const dbtn = document.getElementById(`btn-zd${i}`);
+      dbtn.textContent = state.disabled[i] ? 'Off' : 'On';
+      dbtn.className = state.disabled[i] ? 'active-dim' : '';
+      ZONE_DEFS[i].temp = Math.round(55 + Math.random() * 20);
+      ZONE_DEFS[i].set = Math.round(55 + Math.random() * 18);
+    });
+
+    state.buffer = Math.random() > 0.5;
+    state.dhw = Math.random() > 0.5;
+    state.recirc = Math.random() > 0.5;
+    state.geo = Math.random() > 0.4;
+
+    document.getElementById('buf-temp').value = Math.round(100 + Math.random() * 50);
+    document.getElementById('buf-target').value = Math.round(100 + Math.random() * 20);
+    document.getElementById('dhw-temp').value = Math.round(110 + Math.random() * 20);
+    document.getElementById('dhw-target').value = Math.round(115 + Math.random() * 10);
+    document.getElementById('outdoor-temp').value = Math.round(10 + Math.random() * 60);
+    document.getElementById('geo-hoe').value = (5 + Math.random() * 15).toFixed(1);
+    document.getElementById('geo-power').value = (1 + Math.random() * 5).toFixed(1);
+    document.getElementById('geo-cop').value = (2 + Math.random() * 3).toFixed(1);
+
+    ['buffer', 'dhw', 'recirc', 'geo'].forEach((k) => {
+      const btn = document.getElementById(`btn-${k}`);
+      if (k === 'buffer') { btn.textContent = state.buffer ? 'Heat' : 'Satisfied'; btn.className = state.buffer ? 'active' : ''; }
+      if (k === 'dhw') { btn.textContent = state.dhw ? 'Heat' : 'Off'; btn.className = state.dhw ? 'active-blue' : ''; }
+      if (k === 'recirc') { btn.textContent = state.recirc ? 'On' : 'Off'; btn.className = state.recirc ? 'active-green' : ''; }
+      if (k === 'geo') { btn.textContent = state.geo ? 'On' : 'Off'; btn.className = state.geo ? 'active-blue' : ''; }
+    });
+
+    pushHass();
+  }
+
+  // Boot
+  const card = document.createElement('heating-system-card');
+  card.setConfig({ type: 'custom:heating-system-card' });
+  document.getElementById('card-container').appendChild(card);
+  pushHass();
+</script>
+</body>
+</html>
