@@ -1,5 +1,4 @@
 const HEAT = '#f5a623';
-const GEO_ON = '#2d9cff';
 
 const DEFAULTS = {
   zones: [
@@ -10,24 +9,25 @@ const DEFAULTS = {
     { entity: 'climate.office', name: 'Office' },
   ],
   buffer: {
+    name: 'BUFFER',
     temp: 'sensor.aeco_0982_tank',
     target: 'sensor.aeco_0982_tank_target',
     state: 'sensor.aeco_0982_tank_state',
     pump: 'binary_sensor.aeco_0982_pump_1',
     wwsd: 'sensor.aeco_0982_wwsd_temperature',
-    min_target: 'sensor.aeco_0982_min_tank_temperature',
-    max_target: 'sensor.aeco_0982_max_tank_temperature',
     reset_outdoor: 'sensor.aeco_0982_outdoor_reset_temperature',
   },
   dhw: {
+    name: 'DHW',
     temp: 'sensor.aeco_0982_dhw_tank',
     target: 'sensor.aeco_0982_dhw_tank_target',
     state: 'sensor.aeco_0982_dhw_tank_state',
     pump: 'binary_sensor.aeco_0982_pump_2',
   },
-  outdoor: 'sensor.aeco_0982_outdoor',
-  recirc: 'switch.lower_equipment_room_recirculator_pump',
+  outdoor: { name: 'OUTDOOR', entity: 'sensor.aeco_0982_outdoor' },
+  recirc: { name: 'RECIRC', entity: 'switch.lower_equipment_room_recirculator_pump' },
   geo: {
+    name: 'GEOTHERMAL',
     heat_of_extraction: 'sensor.waterfurnace_water_compressor_heat_of_extraction',
     total_power: 'sensor.waterfurnace_water_heat_pump_total_power_usage',
     cop: 'sensor.waterfurnace_water_coefficient_of_power',
@@ -63,8 +63,8 @@ class HeatingSystemCard extends HTMLElement {
       zones: cz.length > 0 ? cz : DEFAULTS.zones,
       buffer: { ...DEFAULTS.buffer, ...(config.buffer || {}) },
       dhw: { ...DEFAULTS.dhw, ...(config.dhw || {}) },
-      outdoor: config.outdoor || DEFAULTS.outdoor,
-      recirc: config.recirc || DEFAULTS.recirc,
+      outdoor: { ...DEFAULTS.outdoor, ...(typeof config.outdoor === 'string' ? { entity: config.outdoor } : config.outdoor || {}) },
+      recirc: { ...DEFAULTS.recirc, ...(typeof config.recirc === 'string' ? { entity: config.recirc } : config.recirc || {}) },
       geo: { ...DEFAULTS.geo, ...(config.geo || {}) },
     };
     this._built = false;
@@ -111,8 +111,21 @@ class HeatingSystemCard extends HTMLElement {
     const rx = dx + dhwW + g3, rcx = rx + recW / 2;
 
     const busY = 108;
-    const busX1 = Math.min(zp[0].cx, bcx);
-    const busX2 = Math.max(zp[n - 1].cx, bcx);
+    const busPoints = zp.map(z => z.cx).concat(bcx).sort((a, b) => a - b);
+    let busPipes = '';
+    for (let i = 0; i < busPoints.length - 1; i++) {
+      busPipes += `
+        <line id="bus${i}" x1="${busPoints[i]}" y1="${busY}" x2="${busPoints[i + 1]}" y2="${busY}" class="pipe"/>`;
+    }
+    this._zoneBusSegs = zp.map(z => {
+      const lo = Math.min(z.cx, bcx);
+      const hi = Math.max(z.cx, bcx);
+      const segs = [];
+      for (let k = 0; k < busPoints.length - 1; k++) {
+        if (busPoints[k] >= lo && busPoints[k + 1] <= hi) segs.push(k);
+      }
+      return segs;
+    });
 
     const r2y = 138;
     const tankBot = r2y + bufH;
@@ -199,7 +212,7 @@ class HeatingSystemCard extends HTMLElement {
 
           <!-- Pipes (behind boxes) -->
           ${zonePipes}
-          <line id="bus" x1="${busX1}" y1="${busY}" x2="${busX2}" y2="${busY}" class="pipe"/>
+          ${busPipes}
           <line id="trunk" x1="${bcx}" y1="${busY}" x2="${bcx}" y2="${r2y}" class="pipe"/>
 
           <line id="ob" x1="${ox + outW}" y1="${connY}" x2="${bx}" y2="${connY}" class="pipe"/>
@@ -213,9 +226,9 @@ class HeatingSystemCard extends HTMLElement {
           ${zoneCards}
 
           <!-- Outdoor -->
-          <g data-entity="${c.outdoor}" class="click">
+          <g data-entity="${c.outdoor.entity}" class="click">
             <rect id="or" x="${ox}" y="${sideY}" width="${outW}" height="${outH}" rx="7" class="box"/>
-            <text x="${ocx}" y="${sideY + 19}" text-anchor="middle" class="label">OUTDOOR</text>
+            <text x="${ocx}" y="${sideY + 19}" text-anchor="middle" class="label">${c.outdoor.name}</text>
             <text id="ot" x="${ocx}" y="${sideY + 37}" text-anchor="middle" class="temp-sm">--</text>
             <text id="ow" x="${ocx}" y="${sideY + 50}" text-anchor="middle" class="wwsd"></text>
           </g>
@@ -223,7 +236,7 @@ class HeatingSystemCard extends HTMLElement {
           <!-- Buffer tank -->
           <g data-entity="${c.buffer.state}" class="click">
             <rect id="br" x="${bx}" y="${r2y}" width="${bufW}" height="${bufH}" rx="8" class="box"/>
-            <text x="${bcx}" y="${r2y + 19}" text-anchor="middle" class="label">BUFFER</text>
+            <text x="${bcx}" y="${r2y + 19}" text-anchor="middle" class="label">${c.buffer.name}</text>
             <text id="bt" x="${bcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
             <text id="bs" x="${bcx}" y="${r2y + 57}" text-anchor="middle" class="set">--</text>
           </g>
@@ -231,22 +244,22 @@ class HeatingSystemCard extends HTMLElement {
           <!-- DHW tank -->
           <g data-entity="${c.dhw.state}" class="click">
             <rect id="dr" x="${dx}" y="${r2y}" width="${dhwW}" height="${dhwH}" rx="8" class="box"/>
-            <text x="${dcx}" y="${r2y + 19}" text-anchor="middle" class="label">DHW</text>
+            <text x="${dcx}" y="${r2y + 19}" text-anchor="middle" class="label">${c.dhw.name}</text>
             <text id="dt" x="${dcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
             <text id="ds" x="${dcx}" y="${r2y + 57}" text-anchor="middle" class="set">--</text>
           </g>
 
           <!-- Recirc -->
-          <g data-entity="${c.recirc}" class="click">
+          <g data-entity="${c.recirc.entity}" class="click">
             <rect id="rr" x="${rx}" y="${sideY}" width="${recW}" height="${recH}" rx="7" class="box"/>
-            <text x="${rcx}" y="${sideY + 19}" text-anchor="middle" class="label">RECIRC</text>
-            <text id="rs" x="${rcx}" y="${sideY + 37}" text-anchor="middle" class="status">OFF</text>
+            <text x="${rcx}" y="${sideY + 19}" text-anchor="middle" class="label">${c.recirc.name}</text>
+            <text id="rs" x="${rcx}" y="${sideY + 37}" text-anchor="middle" class="temp-sm">OFF</text>
           </g>
 
           <!-- Geothermal -->
           <g data-entity="${c.geo.running}" class="click">
             <rect id="gr" x="${gx}" y="${geoTop}" width="${geoW}" height="${geoH}" rx="8" class="box"/>
-            <text x="${gcx}" y="${geoTop + 19}" text-anchor="middle" class="label">GEOTHERMAL</text>
+            <text x="${gcx}" y="${geoTop + 19}" text-anchor="middle" class="label">${c.geo.name}</text>
 
             <text x="${col1}" y="${geoTop + 36}" text-anchor="middle" class="sub">HoE</text>
             <text id="gh" x="${col1}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
@@ -269,7 +282,8 @@ class HeatingSystemCard extends HTMLElement {
         r: $(`zr${i}`), t: $(`zt${i}`), s: $(`zs${i}`),
         pv: $(`zpv${i}`),
       })),
-      bus: $('bus'), trunk: $('trunk'),
+      bus: Array.from({ length: busPoints.length - 1 }, (_, i) => $(`bus${i}`)),
+      trunk: $('trunk'),
       ob: $('ob'), or: $('or'), ow: $('ow'),
       br: $('br'), bt: $('bt'), bs: $('bs'),
       dr: $('dr'), dt: $('dt'), ds: $('ds'),
@@ -297,10 +311,14 @@ class HeatingSystemCard extends HTMLElement {
     const v = (id) => h.states[id]?.state;
 
     let anyCalling = false;
+    const callingSegs = new Set();
     for (let i = 0; i < c.zones.length; i++) {
       const ent = h.states[c.zones[i].entity];
       const calling = ent?.attributes?.hvac_action === 'heating';
-      if (calling) anyCalling = true;
+      if (calling) {
+        anyCalling = true;
+        for (const s of this._zoneBusSegs[i]) callingSegs.add(s);
+      }
 
       const disabled = ent?.state === 'off';
       const zi = e.z[i];
@@ -312,7 +330,9 @@ class HeatingSystemCard extends HTMLElement {
       zi.s.style.fill = calling ? HEAT : '';
       zi.pv.style.stroke = calling ? HEAT : '';
     }
-    e.bus.style.stroke = anyCalling ? HEAT : '';
+    for (let k = 0; k < e.bus.length; k++) {
+      e.bus[k].style.stroke = callingSegs.has(k) ? HEAT : '';
+    }
     e.trunk.style.stroke = anyCalling ? HEAT : '';
 
     const bufHeat = v(c.buffer.state) === 'Heat';
@@ -327,23 +347,22 @@ class HeatingSystemCard extends HTMLElement {
     e.dt.textContent = fmt(v(c.dhw.temp));
     e.ds.textContent = fmt(v(c.dhw.target));
 
-    e.ot.textContent = fmt(v(c.outdoor));
-    const outdoor = Number(v(c.outdoor));
+    e.ot.textContent = fmt(v(c.outdoor.entity));
+    const outdoor = Number(v(c.outdoor.entity));
     const wwsd = Number(v(c.buffer.wwsd));
     const aboveWwsd = !isNaN(outdoor) && !isNaN(wwsd) && outdoor >= wwsd;
     e.ob.style.stroke = aboveWwsd ? '' : HEAT;
     const resetOut = Number(v(c.buffer.reset_outdoor));
     e.ow.textContent = (!isNaN(resetOut) && !isNaN(wwsd)) ? `${fmt(resetOut)} to ${fmt(wwsd)}` : '';
 
-    const recOn = v(c.recirc) === 'on';
+    const recOn = v(c.recirc.entity) === 'on';
     e.rr.style.stroke = recOn ? HEAT : '';
     e.rr.style.strokeWidth = recOn ? '1.5' : '';
     e.rc.style.stroke = recOn ? HEAT : '';
     e.rs.textContent = recOn ? 'ON' : 'OFF';
-    e.rs.style.fill = recOn ? HEAT : '';
 
     const geoOn = v(c.geo.running) === 'on';
-    e.gr.style.stroke = geoOn ? GEO_ON : '';
+    e.gr.style.stroke = geoOn ? HEAT : '';
     e.gr.style.strokeWidth = geoOn ? '1.5' : '';
     e.gh.textContent = fmtD(v(c.geo.heat_of_extraction));
     e.gp.textContent = fmtD(v(c.geo.total_power));

@@ -140,18 +140,14 @@
     </div>
   </div>
   <div class="panel">
-    <h3>Outdoor Reset Curve</h3>
+    <h3>Outdoor</h3>
+    <div class="row">
+      <label>Temp</label>
+      <input type="number" id="outdoor-temp" value="34" onchange="pushHass()">
+    </div>
     <div class="row">
       <label>WWSD</label>
       <input type="number" id="buf-wwsd" value="55" onchange="pushHass()">
-    </div>
-    <div class="row">
-      <label>Min Tank</label>
-      <input type="number" id="buf-min" value="100" onchange="pushHass()">
-    </div>
-    <div class="row">
-      <label>Max Tank</label>
-      <input type="number" id="buf-max" value="145" onchange="pushHass()">
     </div>
     <div class="row">
       <label>Reset Outdoor</label>
@@ -171,13 +167,6 @@
     <div class="row">
       <label>Target</label>
       <input type="number" id="dhw-target" value="120" onchange="pushHass()">
-    </div>
-  </div>
-  <div class="panel">
-    <h3>Outdoor</h3>
-    <div class="row">
-      <label>Temp</label>
-      <input type="number" id="outdoor-temp" value="34" onchange="pushHass()">
     </div>
   </div>
   <div class="panel">
@@ -277,8 +266,6 @@
     states['sensor.aeco_0982_tank_state'] = { state: state.buffer ? 'Heat' : 'Satisfied' };
     states['binary_sensor.aeco_0982_pump_1'] = { state: state.buffer ? 'on' : 'off' };
     states['sensor.aeco_0982_wwsd_temperature'] = { state: document.getElementById('buf-wwsd').value };
-    states['sensor.aeco_0982_min_tank_temperature'] = { state: document.getElementById('buf-min').value };
-    states['sensor.aeco_0982_max_tank_temperature'] = { state: document.getElementById('buf-max').value };
     states['sensor.aeco_0982_outdoor_reset_temperature'] = { state: document.getElementById('buf-reset').value };
 
     const dhwTemp = document.getElementById('dhw-temp').value;
