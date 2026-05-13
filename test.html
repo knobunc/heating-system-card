@@ -150,6 +150,10 @@
       <input type="number" id="buf-wwsd" value="55" onchange="pushHass()">
     </div>
     <div class="row">
+      <label>WWSD Active</label>
+      <input type="checkbox" id="wwsd-active" onchange="pushHass()">
+    </div>
+    <div class="row">
       <label>Reset Outdoor</label>
       <input type="number" id="buf-reset" value="-10" onchange="pushHass()">
     </div>
@@ -267,6 +271,7 @@
     states['sensor.aeco_0982_tank_state'] = { state: state.buffer ? 'Heat' : 'Satisfied' };
     states['binary_sensor.aeco_0982_pump_1'] = { state: state.buffer ? 'on' : 'off' };
     states['sensor.aeco_0982_wwsd_temperature'] = { state: document.getElementById('buf-wwsd').value };
+    states['binary_sensor.aeco_0982_wwsd'] = { state: document.getElementById('wwsd-active').checked ? 'on' : 'off' };
     states['sensor.aeco_0982_outdoor_reset_temperature'] = { state: document.getElementById('buf-reset').value };
 
     const dhwTemp = document.getElementById('dhw-temp').value;
@@ -300,13 +305,10 @@
       while (t < end) {
         const dur = 600000 + Math.random() * 3600000;
         const isClimate = eid.startsWith('climate.');
-        const isOutdoorTemp = eid === 'sensor.aeco_0982_outdoor';
         let st, attrs = {};
         if (isClimate) {
           st = 'heat';
           attrs = { hvac_action: on ? 'heating' : 'idle' };
-        } else if (isOutdoorTemp) {
-          st = on ? String(Math.round(20 + Math.random() * 30)) : String(Math.round(56 + Math.random() * 20));
         } else {
           st = on ? (eid.includes('state') ? 'Heat' : 'on') : (eid.includes('state') ? 'Satisfied' : 'off');
         }
