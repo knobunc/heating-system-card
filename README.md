@@ -91,6 +91,21 @@ type: custom:heating-system-card
 - **Click any box** to open the Home Assistant more-info dialog for that entity.
 - **Theme-aware**: Text, borders, and surfaces inherit from HA theme CSS custom properties (`--primary-text-color`, `--secondary-text-color`, `--disabled-text-color`, `--card-background-color`, `--divider-color`). Override `--hsc-*` variables for fine-grained control.
 
+## Development
+
+Requires `curl`, `tar`, and `python3` (all standard on Linux).
+
+```bash
+make node       # Download and install Node.js locally (for syntax checking)
+make check      # Syntax-check heating-system-card.js
+make test       # Alias for check
+make serve      # Start a dev server at http://localhost:8080/test.html
+make stop       # Stop the dev server
+make clean      # Remove Node.js install and stop the server
+```
+
+The test harness (`test.html`) stubs the Home Assistant API and lets you toggle zone states, tank modes, and other inputs to visually verify the card.
+
 ## License
 
 MIT
