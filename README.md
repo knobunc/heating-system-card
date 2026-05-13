@@ -1,6 +1,6 @@
 # Heating System Card
 
-A custom Home Assistant Lovelace card that displays a hydronic heating system diagram with reactive SVG piping.
+A custom Home Assistant Lovelace card that displays a hydronic heating system diagram with reactive SVG piping. Companion card for [ha-sensorlinx](https://github.com/knobunc/ha-sensorlinx).
 
 Shows zone thermostats, buffer tank, DHW tank, outdoor temperature, recirculation pump, and geothermal unit — all with live state-driven colors and click-to-open-more-info.
 
@@ -57,6 +57,7 @@ outdoor:
   name: Outdoor
   entity: sensor.aeco_0982_outdoor
   wwsd: sensor.aeco_0982_wwsd_temperature
+  wwsd_active: binary_sensor.aeco_0982_wwsd
   reset_outdoor: sensor.aeco_0982_outdoor_reset_temperature
 recirc:
   name: Recirc
@@ -84,7 +85,7 @@ type: custom:heating-system-card
 
 - **Zone thermostats**: Border, setpoint, and supply pipe turn orange when calling for heat. Only the bus segments between calling zones and the buffer light up. Setpoint shows `OFF` and temperature dims when the thermostat is off (e.g. windows open).
 - **Buffer tank**: Border turns orange when tank state is `Heat`. Shows current temp and setpoint.
-- **Outdoor reset curve**: The outdoor→buffer connector turns orange when outdoor temp is below the WWSD threshold (reset active). The outdoor box shows the reset range (e.g. `-10° to 55°`).
+- **Outdoor reset curve**: The outdoor→buffer connector turns orange when WWSD is not active (heating can happen). The outdoor box shows the reset range (e.g. `-10° to 55°`).
 - **DHW tank**: Border turns orange when tank state is `Heat`. Shows current temp and setpoint.
 - **Recirc pump**: Border and connector turn orange when the switch is on.
 - **Geothermal**: Border turns orange when the blower is running. Shows Heat of Extraction (kW), Total Power (kW), and COP.
