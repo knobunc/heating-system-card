@@ -196,6 +196,7 @@
     </div>
   </div>
   <button onclick="randomize()">Randomize All</button>
+  <button onclick="randomizeHistory()">Randomize History</button>
   <button id="btn-theme" onclick="toggleTheme()">Switch to Dark</button>
   <p class="hint">Click any box in the card to test more-info events (logged to console)</p>
 </div>
@@ -284,7 +285,42 @@
     states['sensor.waterfurnace_water_heat_pump_total_power_usage'] = { state: document.getElementById('geo-power').value };
     states['sensor.waterfurnace_water_coefficient_of_power'] = { state: document.getElementById('geo-cop').value };
 
-    return { states };
+    return { states, callWS: fakeCallWS };
+  }
+
+  function fakeCallWS(msg) {
+    if (msg.type !== 'history/history_during_period') return Promise.resolve({});
+    const start = new Date(msg.start_time).getTime();
+    const end = new Date(msg.end_time).getTime();
+    const result = {};
+    for (const eid of msg.entity_ids) {
+      const entries = [];
+      let t = start;
+      let on = Math.random() > 0.5;
+      while (t < end) {
+        const dur = 600000 + Math.random() * 3600000;
+        const isClimate = eid.startsWith('climate.');
+        const isOutdoorTemp = eid === 'sensor.aeco_0982_outdoor';
+        let st, attrs = {};
+        if (isClimate) {
+          st = 'heat';
+          attrs = { hvac_action: on ? 'heating' : 'idle' };
+        } else if (isOutdoorTemp) {
+          st = on ? String(Math.round(20 + Math.random() * 30)) : String(Math.round(56 + Math.random() * 20));
+        } else {
+          st = on ? (eid.includes('state') ? 'Heat' : 'on') : (eid.includes('state') ? 'Satisfied' : 'off');
+        }
+        entries.push({
+          last_changed: new Date(t).toISOString(),
+          state: st,
+          attributes: attrs,
+        });
+        t += dur;
+        on = !on;
+      }
+      result[eid] = entries;
+    }
+    return Promise.resolve(result);
   }
 
   function pushHass() {
@@ -375,6 +411,12 @@
       if (k === 'geo') { btn.textContent = state.geo ? 'On' : 'Off'; btn.className = state.geo ? 'active-blue' : ''; }
     });
 
+    card._lastHistoryFetch = 0;
+    pushHass();
+  }
+
+  function randomizeHistory() {
+    card._lastHistoryFetch = 0;
     pushHass();
   }
 

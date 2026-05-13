@@ -84,6 +84,11 @@ class HeatingSystemCard extends HTMLElement {
       this._built = true;
     }
     this._update();
+    const now = Date.now();
+    if (now - this._lastHistoryFetch > 300000) {
+      this._lastHistoryFetch = now;
+      this._fetchHistory();
+    }
   }
 
   getCardSize() {
@@ -94,16 +99,16 @@ class HeatingSystemCard extends HTMLElement {
     const c = this._config;
     const n = c.zones.length;
 
-    const cardW = 108, cardH = 62, zGap = 18, margin = 18;
-    const outW = 96, outH = 54, bufW = 148, bufH = 70;
-    const dhwW = 148, dhwH = 70, recW = 88, recH = 54;
+    const cardW = 108, cardH = 66, zGap = 18, margin = 18;
+    const outW = 96, outH = 60, bufW = 148, bufH = 68;
+    const dhwW = 148, dhwH = 68, recW = 88, recH = 48;
     const geoW = 180, geoH = 78;
     const g1 = 20, g2 = 120, g3 = 18;
 
     const zoneRowW = n * cardW + Math.max(0, n - 1) * zGap;
     const row2W = outW + g1 + bufW + g2 + dhwW + g3 + recW;
     const W = Math.max(zoneRowW + 2 * margin, row2W + 2 * margin);
-    const H = 360;
+    const H = 344;
 
     const zLeft = (W - zoneRowW) / 2;
     const zp = Array.from({ length: n }, (_, i) => {
@@ -134,7 +139,7 @@ class HeatingSystemCard extends HTMLElement {
       return segs;
     });
 
-    const r2y = 138;
+    const r2y = 132;
     const tankBot = r2y + bufH;
     const tankCy = r2y + bufH / 2;
     const sideY = Math.round(tankCy - outH / 2);
@@ -142,7 +147,7 @@ class HeatingSystemCard extends HTMLElement {
 
     const gcx = (bcx + dcx) / 2;
     const gx = gcx - geoW / 2;
-    const geoTop = 268;
+    const geoTop = 248;
     const pipeKneeY = Math.round((tankBot + geoTop) / 2);
     const spread = 40;
     const geL = gcx - spread, geR = gcx + spread;
@@ -154,13 +159,14 @@ class HeatingSystemCard extends HTMLElement {
       const z = zp[i];
       zoneCards += `
         <g data-entity="${c.zones[i].entity}" class="click">
-          <rect id="zr${i}" x="${z.x}" y="16" width="${cardW}" height="${cardH}" rx="7" class="box"/>
+          <rect id="zr${i}" x="${z.x}" y="18" width="${cardW}" height="${cardH}" rx="7" class="box"/>
           <text x="${z.cx}" y="35" text-anchor="middle" class="label">${c.zones[i].name}</text>
           <text id="zt${i}" x="${z.cx}" y="58" text-anchor="middle" class="temp">--</text>
           <text id="zs${i}" x="${z.cx}" y="73" text-anchor="middle" class="set">--</text>
+          <g id="ztl${i}"></g>
         </g>`;
       zonePipes += `
-        <line id="zpv${i}" x1="${z.cx}" y1="78" x2="${z.cx}" y2="${busY}" class="pipe"/>`;
+        <line id="zpv${i}" x1="${z.cx}" y1="84" x2="${z.cx}" y2="${busY}" class="pipe"/>`;
     }
 
     this.shadowRoot.innerHTML = `
@@ -238,6 +244,7 @@ class HeatingSystemCard extends HTMLElement {
             <text x="${ocx}" y="${sideY + 19}" text-anchor="middle" class="label">${c.outdoor.name}</text>
             <text id="ot" x="${ocx}" y="${sideY + 37}" text-anchor="middle" class="temp-sm">--</text>
             <text id="ow" x="${ocx}" y="${sideY + 50}" text-anchor="middle" class="wwsd"></text>
+            <g id="otl"></g>
           </g>
 
           <!-- Buffer tank -->
@@ -246,6 +253,7 @@ class HeatingSystemCard extends HTMLElement {
             <text x="${bcx}" y="${r2y + 19}" text-anchor="middle" class="label">${c.buffer.name}</text>
             <text id="bt" x="${bcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
             <text id="bs" x="${bcx}" y="${r2y + 57}" text-anchor="middle" class="set">--</text>
+            <g id="btl"></g>
           </g>
 
           <!-- DHW tank -->
@@ -254,6 +262,7 @@ class HeatingSystemCard extends HTMLElement {
             <text x="${dcx}" y="${r2y + 19}" text-anchor="middle" class="label">${c.dhw.name}</text>
             <text id="dt" x="${dcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
             <text id="ds" x="${dcx}" y="${r2y + 57}" text-anchor="middle" class="set">--</text>
+            <g id="dtl"></g>
           </g>
 
           <!-- Recirc -->
@@ -261,6 +270,7 @@ class HeatingSystemCard extends HTMLElement {
             <rect id="rr" x="${rx}" y="${sideY}" width="${recW}" height="${recH}" rx="7" class="box"/>
             <text x="${rcx}" y="${sideY + 19}" text-anchor="middle" class="label">${c.recirc.name}</text>
             <text id="rs" x="${rcx}" y="${sideY + 37}" text-anchor="middle" class="temp-sm">OFF</text>
+            <g id="rtl"></g>
           </g>
 
           <!-- Geothermal -->
@@ -284,6 +294,8 @@ class HeatingSystemCard extends HTMLElement {
               <text x="${col3}" y="${geoTop + 36}" text-anchor="middle" class="sub">COP</text>
               <text id="gc" x="${col3}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
             </g>
+
+            <g id="gtl"></g>
           </g>
 
         </svg>
@@ -306,6 +318,58 @@ class HeatingSystemCard extends HTMLElement {
       pbg: $('pbg'), pdg: $('pdg'),
     };
 
+    const tlH = 3, tlInset = 4;
+    this._tlSpecs = [];
+    for (let i = 0; i < n; i++) {
+      this._tlSpecs.push({
+        entity: c.zones[i].entity,
+        isActive: (s) => s.attributes?.hvac_action === 'heating',
+        g: $(`ztl${i}`),
+        x: zp[i].x + tlInset, y: 79,
+        w: cardW - 2 * tlInset, h: tlH,
+      });
+    }
+    this._tlSpecs.push({
+      entity: c.buffer.state,
+      isActive: (s) => s.state === 'Heat',
+      g: $('btl'),
+      x: bx + tlInset, y: r2y + bufH - tlH - 2,
+      w: bufW - 2 * tlInset, h: tlH,
+    });
+    this._tlSpecs.push({
+      entity: c.dhw.state,
+      isActive: (s) => s.state === 'Heat',
+      g: $('dtl'),
+      x: dx + tlInset, y: r2y + dhwH - tlH - 2,
+      w: dhwW - 2 * tlInset, h: tlH,
+    });
+    this._tlSpecs.push({
+      entity: c.outdoor.entity,
+      isActive: (s) => {
+        const t = Number(s.state);
+        return !isNaN(t) && !isNaN(this._wwsdVal) && t < this._wwsdVal;
+      },
+      g: $('otl'),
+      x: ox + tlInset, y: sideY + outH - tlH - 2,
+      w: outW - 2 * tlInset, h: tlH,
+    });
+    this._tlSpecs.push({
+      entity: c.recirc.entity,
+      isActive: (s) => s.state === 'on',
+      g: $('rtl'),
+      x: rx + tlInset, y: sideY + recH - tlH - 2,
+      w: recW - 2 * tlInset, h: tlH,
+    });
+    this._tlSpecs.push({
+      entity: c.geo.running,
+      isActive: (s) => s.state === 'on',
+      g: $('gtl'),
+      x: gx + tlInset, y: geoTop + geoH - tlH - 2,
+      w: geoW - 2 * tlInset, h: tlH,
+    });
+    this._history = null;
+    this._lastHistoryFetch = 0;
+
     this.shadowRoot.querySelectorAll('[data-entity]').forEach((el) => {
       el.addEventListener('click', () => {
         this.dispatchEvent(new CustomEvent('hass-more-info', {
@@ -315,6 +379,77 @@ class HeatingSystemCard extends HTMLElement {
         }));
       });
     });
+  }
+
+  async _fetchHistory() {
+    if (!this._hass?.callWS || !this._tlSpecs) return;
+    const now = new Date();
+    const start = new Date(now.getTime() - 6 * 3600000);
+    const entityIds = [...new Set(this._tlSpecs.map(s => s.entity))];
+    try {
+      const result = await this._hass.callWS({
+        type: 'history/history_during_period',
+        start_time: start.toISOString(),
+        end_time: now.toISOString(),
+        entity_ids: entityIds,
+        significant_changes_only: true,
+        minimal_response: true,
+        no_attributes: false,
+      });
+      const startMs = start.getTime(), rangeMs = now.getTime() - startMs;
+      this._history = {};
+      for (const eid of entityIds) {
+        const entries = result[eid] || [];
+        this._history[eid] = entries.map(e => ({
+          t: (new Date(e.lu || e.last_changed).getTime() - startMs) / rangeMs,
+          state: e.s || e.state,
+          attributes: e.a || e.attributes || {},
+        }));
+      }
+      const wwsd = this._hass.states[this._config.outdoor.wwsd]?.state;
+      this._wwsdVal = wwsd != null ? Number(wwsd) : NaN;
+      this._updateTimelines();
+    } catch (_) {}
+  }
+
+  _updateTimelines() {
+    if (!this._history) return;
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    for (const spec of this._tlSpecs) {
+      const g = spec.g;
+      while (g.firstChild) g.removeChild(g.firstChild);
+
+      const bg = document.createElementNS(SVG_NS, 'rect');
+      bg.setAttribute('x', spec.x);
+      bg.setAttribute('y', spec.y);
+      bg.setAttribute('width', spec.w);
+      bg.setAttribute('height', spec.h);
+      bg.setAttribute('rx', 1.5);
+      bg.setAttribute('fill', 'var(--hsc-idle)');
+      bg.setAttribute('opacity', '0.5');
+      g.appendChild(bg);
+
+      const entries = this._history[spec.entity];
+      if (!entries || entries.length === 0) continue;
+
+      for (let i = 0; i < entries.length; i++) {
+        const active = spec.isActive(entries[i]);
+        if (!active) continue;
+        const t0 = Math.max(0, entries[i].t);
+        const t1 = (i + 1 < entries.length) ? entries[i + 1].t : 1;
+        const rx = spec.x + t0 * spec.w;
+        const rw = (t1 - t0) * spec.w;
+        if (rw < 0.5) continue;
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.setAttribute('x', rx);
+        r.setAttribute('y', spec.y);
+        r.setAttribute('width', rw);
+        r.setAttribute('height', spec.h);
+        r.setAttribute('fill', HEAT);
+        r.setAttribute('rx', 1.5);
+        g.appendChild(r);
+      }
+    }
   }
 
   _update() {
