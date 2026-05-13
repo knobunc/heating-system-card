@@ -67,7 +67,10 @@ geo:
   total_power: sensor.waterfurnace_water_heat_pump_total_power_usage
   cop: sensor.waterfurnace_water_coefficient_of_power
   running: binary_sensor.waterfurnace_water_blower_running
+history_hours: 6
 ```
+
+- `history_hours`: Number of hours shown in the activity timeline bars (1–24, default 6). Set to `0` to disable timeline bars entirely.
 
 All entity IDs and names above are defaults — you can omit any section to use them, or override individual fields.
 

@@ -66,6 +66,9 @@ class HeatingSystemCard extends HTMLElement {
   setConfig(config) {
     if (!config) throw new Error('Config required');
     const cz = config.zones || [];
+    const hh = config.history_hours;
+    const historyHours = (hh === false || hh === 0) ? 0
+      : (hh == null ? 6 : Math.max(1, Math.min(24, Math.round(Number(hh)) || 6)));
     this._config = {
       zones: cz.length > 0 ? cz : DEFAULTS.zones,
       buffer: { ...DEFAULTS.buffer, ...(config.buffer || {}) },
@@ -73,6 +76,7 @@ class HeatingSystemCard extends HTMLElement {
       outdoor: { ...DEFAULTS.outdoor, ...(config.outdoor || {}) },
       recirc: { ...DEFAULTS.recirc, ...(config.recirc || {}) },
       geo: { ...DEFAULTS.geo, ...(config.geo || {}) },
+      history_hours: historyHours,
     };
     this._built = false;
   }
@@ -84,10 +88,12 @@ class HeatingSystemCard extends HTMLElement {
       this._built = true;
     }
     this._update();
-    const now = Date.now();
-    if (now - this._lastHistoryFetch > 300000) {
-      this._lastHistoryFetch = now;
-      this._fetchHistory();
+    if (this._config.history_hours > 0) {
+      const now = Date.now();
+      if (now - this._lastHistoryFetch > 300000) {
+        this._lastHistoryFetch = now;
+        this._fetchHistory();
+      }
     }
   }
 
@@ -163,7 +169,7 @@ class HeatingSystemCard extends HTMLElement {
           <text x="${z.cx}" y="35" text-anchor="middle" class="label">${c.zones[i].name}</text>
           <text id="zt${i}" x="${z.cx}" y="58" text-anchor="middle" class="temp">--</text>
           <text id="zs${i}" x="${z.cx}" y="73" text-anchor="middle" class="set">--</text>
-          <g id="ztl${i}"></g>
+          ${c.history_hours > 0 ? `<g id="ztl${i}"></g>` : ''}
         </g>`;
       zonePipes += `
         <line id="zpv${i}" x1="${z.cx}" y1="84" x2="${z.cx}" y2="${busY}" class="pipe"/>`;
@@ -244,7 +250,7 @@ class HeatingSystemCard extends HTMLElement {
             <text x="${ocx}" y="${sideY + 19}" text-anchor="middle" class="label">${c.outdoor.name}</text>
             <text id="ot" x="${ocx}" y="${sideY + 37}" text-anchor="middle" class="temp-sm">--</text>
             <text id="ow" x="${ocx}" y="${sideY + 50}" text-anchor="middle" class="wwsd"></text>
-            <g id="otl"></g>
+            ${c.history_hours > 0 ? '<g id="otl"></g>' : ''}
           </g>
 
           <!-- Buffer tank -->
@@ -253,7 +259,7 @@ class HeatingSystemCard extends HTMLElement {
             <text x="${bcx}" y="${r2y + 19}" text-anchor="middle" class="label">${c.buffer.name}</text>
             <text id="bt" x="${bcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
             <text id="bs" x="${bcx}" y="${r2y + 57}" text-anchor="middle" class="set">--</text>
-            <g id="btl"></g>
+            ${c.history_hours > 0 ? '<g id="btl"></g>' : ''}
           </g>
 
           <!-- DHW tank -->
@@ -262,7 +268,7 @@ class HeatingSystemCard extends HTMLElement {
             <text x="${dcx}" y="${r2y + 19}" text-anchor="middle" class="label">${c.dhw.name}</text>
             <text id="dt" x="${dcx}" y="${r2y + 42}" text-anchor="middle" class="temp-lg">--</text>
             <text id="ds" x="${dcx}" y="${r2y + 57}" text-anchor="middle" class="set">--</text>
-            <g id="dtl"></g>
+            ${c.history_hours > 0 ? '<g id="dtl"></g>' : ''}
           </g>
 
           <!-- Recirc -->
@@ -270,7 +276,7 @@ class HeatingSystemCard extends HTMLElement {
             <rect id="rr" x="${rx}" y="${sideY}" width="${recW}" height="${recH}" rx="7" class="box"/>
             <text x="${rcx}" y="${sideY + 19}" text-anchor="middle" class="label">${c.recirc.name}</text>
             <text id="rs" x="${rcx}" y="${sideY + 37}" text-anchor="middle" class="temp-sm">OFF</text>
-            <g id="rtl"></g>
+            ${c.history_hours > 0 ? '<g id="rtl"></g>' : ''}
           </g>
 
           <!-- Geothermal -->
@@ -295,7 +301,7 @@ class HeatingSystemCard extends HTMLElement {
               <text id="gc" x="${col3}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
             </g>
 
-            <g id="gtl"></g>
+            ${c.history_hours > 0 ? '<g id="gtl"></g>' : ''}
           </g>
 
         </svg>
@@ -318,57 +324,59 @@ class HeatingSystemCard extends HTMLElement {
       pbg: $('pbg'), pdg: $('pdg'),
     };
 
-    const tlH = 3, tlInset = 4;
     this._tlSpecs = [];
-    for (let i = 0; i < n; i++) {
-      this._tlSpecs.push({
-        entity: c.zones[i].entity,
-        isActive: (s) => s.attributes?.hvac_action === 'heating',
-        g: $(`ztl${i}`),
-        x: zp[i].x + tlInset, y: 79,
-        w: cardW - 2 * tlInset, h: tlH,
-      });
-    }
-    this._tlSpecs.push({
-      entity: c.buffer.state,
-      isActive: (s) => s.state === 'Heat',
-      g: $('btl'),
-      x: bx + tlInset, y: r2y + bufH - tlH - 2,
-      w: bufW - 2 * tlInset, h: tlH,
-    });
-    this._tlSpecs.push({
-      entity: c.dhw.state,
-      isActive: (s) => s.state === 'Heat',
-      g: $('dtl'),
-      x: dx + tlInset, y: r2y + dhwH - tlH - 2,
-      w: dhwW - 2 * tlInset, h: tlH,
-    });
-    this._tlSpecs.push({
-      entity: c.outdoor.entity,
-      isActive: (s) => {
-        const t = Number(s.state);
-        return !isNaN(t) && !isNaN(this._wwsdVal) && t < this._wwsdVal;
-      },
-      g: $('otl'),
-      x: ox + tlInset, y: sideY + outH - tlH - 2,
-      w: outW - 2 * tlInset, h: tlH,
-    });
-    this._tlSpecs.push({
-      entity: c.recirc.entity,
-      isActive: (s) => s.state === 'on',
-      g: $('rtl'),
-      x: rx + tlInset, y: sideY + recH - tlH - 2,
-      w: recW - 2 * tlInset, h: tlH,
-    });
-    this._tlSpecs.push({
-      entity: c.geo.running,
-      isActive: (s) => s.state === 'on',
-      g: $('gtl'),
-      x: gx + tlInset, y: geoTop + geoH - tlH - 2,
-      w: geoW - 2 * tlInset, h: tlH,
-    });
     this._history = null;
     this._lastHistoryFetch = 0;
+    if (c.history_hours > 0) {
+      const tlH = 3, tlInset = 4;
+      for (let i = 0; i < n; i++) {
+        this._tlSpecs.push({
+          entity: c.zones[i].entity,
+          isActive: (s) => s.attributes?.hvac_action === 'heating',
+          g: $(`ztl${i}`),
+          x: zp[i].x + tlInset, y: 79,
+          w: cardW - 2 * tlInset, h: tlH,
+        });
+      }
+      this._tlSpecs.push({
+        entity: c.buffer.state,
+        isActive: (s) => s.state === 'Heat',
+        g: $('btl'),
+        x: bx + tlInset, y: r2y + bufH - tlH - 2,
+        w: bufW - 2 * tlInset, h: tlH,
+      });
+      this._tlSpecs.push({
+        entity: c.dhw.state,
+        isActive: (s) => s.state === 'Heat',
+        g: $('dtl'),
+        x: dx + tlInset, y: r2y + dhwH - tlH - 2,
+        w: dhwW - 2 * tlInset, h: tlH,
+      });
+      this._tlSpecs.push({
+        entity: c.outdoor.entity,
+        isActive: (s) => {
+          const t = Number(s.state);
+          return !isNaN(t) && !isNaN(this._wwsdVal) && t < this._wwsdVal;
+        },
+        g: $('otl'),
+        x: ox + tlInset, y: sideY + outH - tlH - 2,
+        w: outW - 2 * tlInset, h: tlH,
+      });
+      this._tlSpecs.push({
+        entity: c.recirc.entity,
+        isActive: (s) => s.state === 'on',
+        g: $('rtl'),
+        x: rx + tlInset, y: sideY + recH - tlH - 2,
+        w: recW - 2 * tlInset, h: tlH,
+      });
+      this._tlSpecs.push({
+        entity: c.geo.running,
+        isActive: (s) => s.state === 'on',
+        g: $('gtl'),
+        x: gx + tlInset, y: geoTop + geoH - tlH - 2,
+        w: geoW - 2 * tlInset, h: tlH,
+      });
+    }
 
     this.shadowRoot.querySelectorAll('[data-entity]').forEach((el) => {
       el.addEventListener('click', () => {
@@ -384,7 +392,7 @@ class HeatingSystemCard extends HTMLElement {
   async _fetchHistory() {
     if (!this._hass?.callWS || !this._tlSpecs) return;
     const now = new Date();
-    const start = new Date(now.getTime() - 6 * 3600000);
+    const start = new Date(now.getTime() - this._config.history_hours * 3600000);
     const entityIds = [...new Set(this._tlSpecs.map(s => s.entity))];
     try {
       const result = await this._hass.callWS({
@@ -397,11 +405,15 @@ class HeatingSystemCard extends HTMLElement {
         no_attributes: false,
       });
       const startMs = start.getTime(), rangeMs = now.getTime() - startMs;
+      const parseTs = (v) => {
+        if (typeof v === 'number') return v * 1000;
+        return new Date(v).getTime();
+      };
       this._history = {};
       for (const eid of entityIds) {
         const entries = result[eid] || [];
         this._history[eid] = entries.map(e => ({
-          t: (new Date(e.lu || e.last_changed).getTime() - startMs) / rangeMs,
+          t: (parseTs(e.lc || e.lu || e.last_changed) - startMs) / rangeMs,
           state: e.s || e.state,
           attributes: e.a || e.attributes || {},
         }));
@@ -675,6 +687,11 @@ class HeatingSystemCardEditor extends HTMLElement {
         <summary>Geothermal</summary>
         <div class="section" id="geo-section"></div>
       </details>
+
+      <details>
+        <summary>History</summary>
+        <div class="section" id="history-section"></div>
+      </details>
     `;
 
     const $ = (id) => this.shadowRoot.getElementById(id);
@@ -713,6 +730,20 @@ class HeatingSystemCardEditor extends HTMLElement {
       ['total_power', 'Power', 'sensor'],
       ['cop', 'COP', 'sensor'],
     ]);
+
+    const histSec = $('history-section');
+    const hh = c.history_hours;
+    const histVal = (hh === false || hh === 0) ? 0 : (hh == null ? 6 : Number(hh));
+    histSec.appendChild(this._makeTextField('Hours (0 to disable, 1–24)', String(histVal), (val) => {
+      const n = parseInt(val, 10);
+      if (n === 0 || val === '') {
+        this._config = { ...this._config, history_hours: 0 };
+      } else if (!isNaN(n)) {
+        this._config = { ...this._config, history_hours: Math.max(1, Math.min(24, n)) };
+      }
+      this._fire();
+    }));
+
     this._rendered = true;
   }
 
