@@ -26,6 +26,7 @@ const DEFAULTS = {
     name: 'Outdoor',
     entity: 'sensor.aeco_0982_outdoor',
     wwsd: 'sensor.aeco_0982_wwsd_temperature',
+    wwsd_active: 'binary_sensor.aeco_0982_wwsd',
     reset_outdoor: 'sensor.aeco_0982_outdoor_reset_temperature',
   },
   recirc: { name: 'Recirc', entity: 'switch.lower_equipment_room_recirculator_pump' },
@@ -353,11 +354,8 @@ class HeatingSystemCard extends HTMLElement {
         w: dhwW - 2 * tlInset, h: tlH,
       });
       this._tlSpecs.push({
-        entity: c.outdoor.entity,
-        isActive: (s) => {
-          const t = Number(s.state);
-          return !isNaN(t) && !isNaN(this._wwsdVal) && t < this._wwsdVal;
-        },
+        entity: c.outdoor.wwsd_active,
+        isActive: (s) => s.state === 'off',
         g: $('otl'),
         x: ox + tlInset, y: sideY + outH - tlH - 2,
         w: outW - 2 * tlInset, h: tlH,
@@ -418,8 +416,6 @@ class HeatingSystemCard extends HTMLElement {
           attributes: e.a || e.attributes || {},
         }));
       }
-      const wwsd = this._hass.states[this._config.outdoor.wwsd]?.state;
-      this._wwsdVal = wwsd != null ? Number(wwsd) : NaN;
       this._updateTimelines();
     } catch (_) {}
   }
@@ -508,12 +504,11 @@ class HeatingSystemCard extends HTMLElement {
     e.ds.textContent = fmt(v(c.dhw.target));
 
     e.ot.textContent = fmt(v(c.outdoor.entity));
-    const outdoor = Number(v(c.outdoor.entity));
-    const wwsd = Number(v(c.outdoor.wwsd));
-    const aboveWwsd = !isNaN(outdoor) && !isNaN(wwsd) && outdoor >= wwsd;
-    e.ob.style.stroke = aboveWwsd ? '' : HEAT;
+    const wwsdActive = v(c.outdoor.wwsd_active) === 'on';
+    e.ob.style.stroke = wwsdActive ? '' : HEAT;
     const resetOut = Number(v(c.outdoor.reset_outdoor));
-    e.ow.textContent = (!isNaN(resetOut) && !isNaN(wwsd)) ? `${fmt(resetOut)} to ${fmt(wwsd)}` : '';
+    const wwsdTemp = Number(v(c.outdoor.wwsd));
+    e.ow.textContent = (!isNaN(resetOut) && !isNaN(wwsdTemp)) ? `${fmt(resetOut)} to ${fmt(wwsdTemp)}` : '';
 
     const recOn = v(c.recirc.entity) === 'on';
     e.rr.style.stroke = recOn ? HEAT : '';
@@ -729,7 +724,8 @@ class HeatingSystemCardEditor extends HTMLElement {
       ['entity', 'Entity', 'sensor'],
     ]);
     this._buildGroup($('outdoor-section'), 'outdoor', out, [
-      ['wwsd', 'WWSD', 'sensor'],
+      ['wwsd', 'WWSD Temp', 'sensor'],
+      ['wwsd_active', 'WWSD Active', 'binary_sensor'],
       ['reset_outdoor', 'Reset Outdoor', 'sensor'],
     ]);
     this._buildGroup($('recirc-section'), 'recirc', rec, [
