@@ -405,11 +405,15 @@ class HeatingSystemCard extends HTMLElement {
         no_attributes: false,
       });
       const startMs = start.getTime(), rangeMs = now.getTime() - startMs;
+      const parseTs = (v) => {
+        if (typeof v === 'number') return v * 1000;
+        return new Date(v).getTime();
+      };
       this._history = {};
       for (const eid of entityIds) {
         const entries = result[eid] || [];
         this._history[eid] = entries.map(e => ({
-          t: (new Date(e.lu || e.last_changed).getTime() - startMs) / rangeMs,
+          t: (parseTs(e.lc || e.lu || e.last_changed) - startMs) / rangeMs,
           state: e.s || e.state,
           attributes: e.a || e.attributes || {},
         }));
