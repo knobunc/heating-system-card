@@ -658,7 +658,12 @@ class HeatingSystemCardEditor extends HTMLElement {
         .add-row { margin-top: 4px; }
       </style>
 
-      <details open>
+      <details>
+        <summary>History</summary>
+        <div class="section" id="history-section"></div>
+      </details>
+
+      <details>
         <summary>Zones</summary>
         <div class="section" id="zones-section"></div>
       </details>
@@ -687,14 +692,22 @@ class HeatingSystemCardEditor extends HTMLElement {
         <summary>Geothermal</summary>
         <div class="section" id="geo-section"></div>
       </details>
-
-      <details>
-        <summary>History</summary>
-        <div class="section" id="history-section"></div>
-      </details>
     `;
 
     const $ = (id) => this.shadowRoot.getElementById(id);
+
+    const histSec = $('history-section');
+    const hh = c.history_hours;
+    const histVal = (hh === false || hh === 0) ? 0 : (hh == null ? 6 : Number(hh));
+    histSec.appendChild(this._makeTextField('Hours (0 to disable, 1–24)', String(histVal), (val) => {
+      const n = parseInt(val, 10);
+      if (n === 0 || val === '') {
+        this._config = { ...this._config, history_hours: 0 };
+      } else if (!isNaN(n)) {
+        this._config = { ...this._config, history_hours: Math.max(1, Math.min(24, n)) };
+      }
+      this._fire();
+    }));
 
     this._buildZones($('zones-section'), zones);
     this._buildGroup($('buffer-section'), 'buffer', buf, [
@@ -731,20 +744,12 @@ class HeatingSystemCardEditor extends HTMLElement {
       ['cop', 'COP', 'sensor'],
     ]);
 
-    const histSec = $('history-section');
-    const hh = c.history_hours;
-    const histVal = (hh === false || hh === 0) ? 0 : (hh == null ? 6 : Number(hh));
-    histSec.appendChild(this._makeTextField('Hours (0 to disable, 1–24)', String(histVal), (val) => {
-      const n = parseInt(val, 10);
-      if (n === 0 || val === '') {
-        this._config = { ...this._config, history_hours: 0 };
-      } else if (!isNaN(n)) {
-        this._config = { ...this._config, history_hours: Math.max(1, Math.min(24, n)) };
-      }
-      this._fire();
-    }));
-
     this._rendered = true;
+    requestAnimationFrame(() => {
+      this.shadowRoot.querySelectorAll('ha-entity-picker').forEach(p => {
+        p.hass = this._hass;
+      });
+    });
   }
 
   _buildZones(container, zones) {
