@@ -271,7 +271,7 @@ class HeatingSystemCard extends HTMLElement {
             <g data-entity="${c.geo.heat_of_extraction}" class="click">
               <text x="${col1}" y="${geoTop + 36}" text-anchor="middle" class="sub">HoE</text>
               <text id="gh" x="${col1}" y="${geoTop + 52}" text-anchor="middle" class="val">--</text>
-              <text x="${col1}" y="${geoTop + 64}" text-anchor="middle" class="unit">kW</text>
+              <text x="${col1}" y="${geoTop + 64}" text-anchor="middle" class="unit">kBtuh</text>
             </g>
 
             <g data-entity="${c.geo.total_power}" class="click">
@@ -377,8 +377,10 @@ class HeatingSystemCard extends HTMLElement {
     const geoOn = v(c.geo.running) === 'on';
     e.gr.style.stroke = geoOn ? HEAT : '';
     e.gr.style.strokeWidth = geoOn ? '1.5' : '';
-    e.gh.textContent = fmtD(v(c.geo.heat_of_extraction));
-    e.gp.textContent = fmtD(v(c.geo.total_power));
+    const hoe = v(c.geo.heat_of_extraction);
+    e.gh.textContent = (hoe == null || hoe === 'unavailable' || hoe === 'unknown') ? '—' : (Number(hoe) / 1000).toFixed(1);
+    const gPow = v(c.geo.total_power);
+    e.gp.textContent = (gPow == null || gPow === 'unavailable' || gPow === 'unknown') ? '—' : (Number(gPow) / 1000).toFixed(1);
     e.gc.textContent = fmtD(v(c.geo.cop));
 
     e.pbg.style.stroke = bufHeat ? HEAT : '';
