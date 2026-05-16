@@ -482,7 +482,8 @@ class HeatingSystemCard extends HTMLElement {
       zi.r.style.strokeWidth = calling ? '1.5' : '';
       zi.t.textContent = fmt(ent?.attributes?.current_temperature);
       zi.t.style.fill = disabled ? 'var(--hsc-dim)' : '';
-      zi.s.textContent = disabled ? 'OFF' : fmt(ent?.attributes?.temperature);
+      const setpoint = ent?.attributes?.target_temp_low ?? ent?.attributes?.temperature;
+      zi.s.textContent = disabled ? 'OFF' : fmt(setpoint);
       zi.s.style.fill = calling ? HEAT : '';
       zi.pv.style.stroke = calling ? HEAT : '';
     }
